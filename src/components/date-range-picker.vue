@@ -163,7 +163,11 @@ function handleInputBlur(type: 'start' | 'end'): void {
 }
 
 // 处理日期点击事件
-function handleDateClick(date: Dayjs): void {
+function handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
+  // 如果点击的不是当前月份的日期，则不处理
+  if (date.month() !== currentDisplayMonth.month())
+    return
+
   if (!isSelectingEndDate.value) {
     // 选择开始日期
     selectedStartDate.value = date
@@ -193,33 +197,26 @@ function handleDateClick(date: Dayjs): void {
 
 // 获取日期单元格的样式
 function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
+  const isCurrentMonth = day.month() === currentDisplayMonth.month()
   const isSelected = selectedStartDate.value?.isSame(day, 'day')
     || selectedEndDate.value?.isSame(day, 'day')
   const isInRange = selectedStartDate.value
     && selectedEndDate.value
     && day.isAfter(selectedStartDate.value, 'day')
     && day.isBefore(selectedEndDate.value, 'day')
-  const isOtherMonth = day.month() !== currentDisplayMonth.month()
-  const isStartDate = selectedStartDate.value?.isSame(day, 'day')
-  const isEndDate = selectedEndDate.value?.isSame(day, 'day')
+    && isCurrentMonth // 只有当前月份的日期才显示范围样式
+  const isOtherMonth = !isCurrentMonth
+  const isStartDate = selectedStartDate.value?.isSame(day, 'day') && isCurrentMonth
+  const isEndDate = selectedEndDate.value?.isSame(day, 'day') && isCurrentMonth
 
   return {
-    'selected': isSelected,
+    'selected': isSelected && isCurrentMonth, // 只有当前月份的日期才能被选中
     'in-range': isInRange,
     'other-month': isOtherMonth,
     'start-date': isStartDate,
     'end-date': isEndDate,
+    'current-month': isCurrentMonth,
   }
-}
-
-// 上一月
-function prevMonth(): void {
-  currentMonth.value = currentMonth.value.subtract(1, 'month')
-}
-
-// 下一月
-function nextMonth(): void {
-  currentMonth.value = currentMonth.value.add(1, 'month')
 }
 
 // 关闭弹框
@@ -500,7 +497,8 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   :key="day.valueOf()"
                   class="day-cell"
                   :class="getDateClass(day, startMonth)"
-                  @click="handleDateClick(day)"
+                  :disabled="day.month() !== startMonth.month()"
+                  @click="handleDateClick(day, startMonth)"
                 >
                   {{ day.date() }}
                 </button>
@@ -586,7 +584,8 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   :key="day.valueOf()"
                   class="day-cell"
                   :class="getDateClass(day, endMonth)"
-                  @click="handleDateClick(day)"
+                  :disabled="day.month() !== endMonth.month()"
+                  @click="handleDateClick(day, endMonth)"
                 >
                   {{ day.date() }}
                 </button>
@@ -726,21 +725,19 @@ input {
   border-radius: 4px;
   font-size: 14px;
   position: relative;
+  color: rgba(0, 0, 0, 0.25); /* 默认颜色设置为浅灰色 */
 }
 
-.day-cell:hover:not(.disabled):not(.selected) {
+.day-cell.current-month {
+  color: rgba(0, 0, 0, 0.88); /* 当前月份的日期显示为正常颜色 */
+}
+
+.day-cell:hover:not(.disabled):not(.selected):not(.other-month) {
   background: #f5f5f5;
 }
 
 .day-cell.other-month {
-  color: rgba(0, 0, 0, 0.25);
-  pointer-events: none;
-}
-
-.day-cell.disabled {
-  color: #d9d9d9;
-  cursor: not-allowed;
-  background: #f5f5f5;
+  pointer-events: none; /* 禁止点击其他月份的日期 */
 }
 
 .day-cell.selected {
