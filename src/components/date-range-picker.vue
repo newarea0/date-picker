@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import type { Dayjs } from 'dayjs'
+import { FORMAT } from '@/constants'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
 import { computed, ref, watch } from 'vue'
-import { clickOutside } from '../directives/click-outside'
+import { clickOutside as vClickOutside } from '../directives/click-outside'
 
 const props = withDefaults(defineProps<Props>(), {
-  startDay: 0,
-  format: 'YYYY-MM-DD',
+  dayStartOfWeek: 0,
 })
 const emit = defineEmits<{
   'update:modelValue': [value: [Date | null, Date | null]]
@@ -19,29 +19,32 @@ dayjs.extend(isSameOrAfter)
 dayjs.extend(isSameOrBefore)
 
 interface Props {
+  // 周开始日，0为周日，1为周一
   modelValue: [Date | null, Date | null]
-  startDay?: number
-  minDate?: Date
-  maxDate?: Date
-  format?: string
+  dayStartOfWeek?: number
 }
 
+// 控制弹框的显示/隐藏
 const showPicker = ref(false)
+// 开始日期输入框的值
 const startDateText = ref('')
+// 结束日期输入框的值
 const endDateText = ref('')
+// 输入框是否错误
 const hasError = ref(false)
+// 当前月份
 const currentMonth = ref<Dayjs>(dayjs())
+// 选中的开始日期
 const selectedStartDate = ref<Dayjs | null>(null)
+// 选中的结束日期
 const selectedEndDate = ref<Dayjs | null>(null)
+// 是否在选择结束日期
 const isSelectingEndDate = ref(false)
 
-// Add the directive registration
-const vClickOutside = clickOutside
-
-// 计算周显示
+// 根据周开始日计算周显示
 const weekDays = computed(() => {
   const days = ['日', '一', '二', '三', '四', '五', '六']
-  return [...days.slice(props.startDay), ...days.slice(0, props.startDay)]
+  return [...days.slice(props.dayStartOfWeek), ...days.slice(0, props.dayStartOfWeek)]
 })
 
 // 计算当前月的日期网格
@@ -52,7 +55,7 @@ const daysInMonth = computed(() => {
 
   // 填充上个月的日期
   const firstDayOfWeek = firstDay.day()
-  const prevMonthDays = (firstDayOfWeek - props.startDay + 7) % 7
+  const prevMonthDays = (firstDayOfWeek - props.dayStartOfWeek + 7) % 7
   for (let i = prevMonthDays - 1; i >= 0; i--)
     days.push(firstDay.subtract(i + 1, 'day'))
 
@@ -68,35 +71,105 @@ const daysInMonth = computed(() => {
   return days
 })
 
+// 验证输入框的值
 function validateInput(type: 'start' | 'end'): void {
   const text = type === 'start' ? startDateText.value : endDateText.value
-  const date = dayjs(text, props.format)
-  hasError.value = !date.isValid()
+  const date = dayjs(text, FORMAT)
 
-  if (!hasError.value)
-    updateDateRange()
-}
-
-function updateDateRange(): void {
-  const startDate = dayjs(startDateText.value, props.format).toDate()
-  const endDate = dayjs(endDateText.value, props.format).toDate()
-
-  if (startDate && endDate && startDate > endDate) {
+  // 检查日期是否有效
+  if (!date.isValid()) {
     hasError.value = true
     return
   }
 
-  emit('update:modelValue', [startDate, endDate])
-  emit('change', [startDate, endDate])
+  // 更新选中的日期
+  if (type === 'start') {
+    selectedStartDate.value = date
+    // 如果已经有结束日期，检查顺序
+    if (selectedEndDate.value && date.isAfter(selectedEndDate.value)) {
+      hasError.value = true
+      return
+    }
+  }
+  else {
+    selectedEndDate.value = date
+    // 如果已经有开始日期，检查顺序
+    if (selectedStartDate.value && date.isBefore(selectedStartDate.value)) {
+      hasError.value = true
+      return
+    }
+  }
+
+  hasError.value = false
+  updateDateRange()
 }
 
+// 更新日期范围
+function updateDateRange(): void {
+  if (hasError.value)
+    return
+
+  let startDate: Date | null = null
+  let endDate: Date | null = null
+
+  if (selectedStartDate.value)
+    startDate = selectedStartDate.value.toDate()
+
+  if (selectedEndDate.value)
+    endDate = selectedEndDate.value.toDate()
+
+  // 只有当两个日期都有效或都为空时才更新
+  if ((startDate && endDate) || (!startDate && !endDate)) {
+    emit('update:modelValue', [startDate, endDate])
+    emit('change', [startDate, endDate])
+  }
+}
+
+// 添加输入框失焦事件处理
+function handleInputBlur(type: 'start' | 'end'): void {
+  const text = type === 'start' ? startDateText.value : endDateText.value
+
+  // 如果输入框为空，清除对应的日期
+  if (!text.trim()) {
+    if (type === 'start') {
+      selectedStartDate.value = null
+      startDateText.value = ''
+    }
+    else {
+      selectedEndDate.value = null
+      endDateText.value = ''
+    }
+    hasError.value = false
+    updateDateRange()
+    return
+  }
+
+  // 验证输入
+  validateInput(type)
+
+  // 如果验证失败，恢复为之前的有效值
+  if (hasError.value) {
+    if (type === 'start') {
+      startDateText.value = selectedStartDate.value
+        ? selectedStartDate.value.format(FORMAT)
+        : ''
+    }
+    else {
+      endDateText.value = selectedEndDate.value
+        ? selectedEndDate.value.format(FORMAT)
+        : ''
+    }
+  }
+}
+
+// 处理日期点击事件
 function handleDateClick(date: Dayjs): void {
   if (!isSelectingEndDate.value) {
     // 选择开始日期
     selectedStartDate.value = date
     selectedEndDate.value = null
     isSelectingEndDate.value = true
-    startDateText.value = date.format(props.format)
+    startDateText.value = date.format(FORMAT)
   }
   else {
     // 选择结束日期
@@ -104,12 +177,12 @@ function handleDateClick(date: Dayjs): void {
       // 如果选择的结束日期在开始日期之前，交换它们
       selectedEndDate.value = selectedStartDate.value
       selectedStartDate.value = date
-      startDateText.value = date.format(props.format)
-      endDateText.value = selectedEndDate.value.format(props.format)
+      startDateText.value = date.format(FORMAT)
+      endDateText.value = selectedEndDate.value.format(FORMAT)
     }
     else {
       selectedEndDate.value = date
-      endDateText.value = date.format(props.format)
+      endDateText.value = date.format(FORMAT)
     }
 
     isSelectingEndDate.value = false
@@ -118,6 +191,7 @@ function handleDateClick(date: Dayjs): void {
   }
 }
 
+// 获取日期单元格的样式
 function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
   const isSelected = selectedStartDate.value?.isSame(day, 'day')
     || selectedEndDate.value?.isSame(day, 'day')
@@ -125,8 +199,6 @@ function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
     && selectedEndDate.value
     && day.isAfter(selectedStartDate.value, 'day')
     && day.isBefore(selectedEndDate.value, 'day')
-  const isDisabled = (props.minDate && day.isBefore(props.minDate, 'day'))
-    || (props.maxDate && day.isAfter(props.maxDate, 'day'))
   const isOtherMonth = day.month() !== currentDisplayMonth.month()
   const isStartDate = selectedStartDate.value?.isSame(day, 'day')
   const isEndDate = selectedEndDate.value?.isSame(day, 'day')
@@ -134,31 +206,35 @@ function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
   return {
     'selected': isSelected,
     'in-range': isInRange,
-    'disabled': isDisabled,
     'other-month': isOtherMonth,
     'start-date': isStartDate,
     'end-date': isEndDate,
   }
 }
 
+// 上一月
 function prevMonth(): void {
   currentMonth.value = currentMonth.value.subtract(1, 'month')
 }
 
+// 下一月
 function nextMonth(): void {
   currentMonth.value = currentMonth.value.add(1, 'month')
 }
 
+// 关闭弹框
 function closePicker(): void {
   showPicker.value = false
 }
 
+// 切换弹框的显示/隐藏
 function togglePicker(event: Event): void {
   // 阻止事件冒泡
   event.stopPropagation()
   showPicker.value = !showPicker.value
 }
 
+// 处理输入框聚焦事件
 function handleInputFocus(event: Event): void {
   event.stopPropagation()
   showPicker.value = true
@@ -168,7 +244,7 @@ function handleInputFocus(event: Event): void {
 watch(() => props.modelValue, ([start, end]) => {
   if (start) {
     selectedStartDate.value = dayjs(start)
-    startDateText.value = selectedStartDate.value.format(props.format)
+    startDateText.value = selectedStartDate.value.format(FORMAT)
   }
   else {
     selectedStartDate.value = null
@@ -177,7 +253,7 @@ watch(() => props.modelValue, ([start, end]) => {
 
   if (end) {
     selectedEndDate.value = dayjs(end)
-    endDateText.value = selectedEndDate.value.format(props.format)
+    endDateText.value = selectedEndDate.value.format(FORMAT)
   }
   else {
     selectedEndDate.value = null
@@ -185,8 +261,9 @@ watch(() => props.modelValue, ([start, end]) => {
   }
 }, { immediate: true })
 
-// 修改月份状态管理
+// 弹框中开始日期月份
 const startMonth = ref<Dayjs>(dayjs())
+// 弹框中结束日期月份
 const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
 
 // 计算开始月份的日期网格
@@ -207,7 +284,7 @@ function getMonthDays(month: Dayjs) {
 
   // 填充上个月的日期
   const firstDayOfWeek = firstDay.day()
-  const prevMonthDays = (firstDayOfWeek - props.startDay + 7) % 7
+  const prevMonthDays = (firstDayOfWeek - props.dayStartOfWeek + 7) % 7
   for (let i = prevMonthDays - 1; i >= 0; i--)
     days.push(firstDay.subtract(i + 1, 'day'))
 
@@ -230,18 +307,21 @@ function prevStartMonth(): void {
     endMonth.value = startMonth.value.add(1, 'month')
 }
 
+// 下一月
 function nextStartMonth(): void {
   startMonth.value = startMonth.value.add(1, 'month')
   if (startMonth.value.isSameOrAfter(endMonth.value))
     endMonth.value = startMonth.value.add(1, 'month')
 }
 
+// 上一月
 function prevEndMonth(): void {
   endMonth.value = endMonth.value.subtract(1, 'month')
   if (endMonth.value.isSameOrBefore(startMonth.value))
     startMonth.value = endMonth.value.subtract(1, 'month')
 }
 
+// 下一月
 function nextEndMonth(): void {
   endMonth.value = endMonth.value.add(1, 'month')
 }
@@ -301,24 +381,31 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
 
 <template>
   <div class="date-range-picker" @click.stop>
+    <!-- 日期输入框 -->
     <div class="input-wrapper">
+      <!-- 开始日期 -->
       <input
         v-model="startDateText"
         type="text"
-        :placeholder="format"
+        :placeholder="FORMAT"
         @focus="handleInputFocus"
+        @blur="handleInputBlur('start')"
         @click.stop
         @input="validateInput('start')"
       >
+      <!-- 日期分隔符 -->
       <span class="separator">至</span>
+      <!-- 结束日期 -->
       <input
         v-model="endDateText"
         type="text"
-        :placeholder="format"
+        :placeholder="FORMAT"
         @focus="handleInputFocus"
+        @blur="handleInputBlur('end')"
         @click.stop
         @input="validateInput('end')"
       >
+      <!-- 日历图标 -->
       <CalendarOutlined
         class="calendar-icon"
         @click="togglePicker"
@@ -332,6 +419,7 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
       </div>
     </div>
 
+    <!-- 日期选择弹框 -->
     <Transition name="slide-fade">
       <div
         v-if="showPicker"
@@ -347,16 +435,10 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                 ←
               </button>
               <div class="year-month-selector">
-                <button
-                  class="year-month-btn"
-                  @click="showYearPicker = 'start'"
-                >
+                <button class="year-month-btn" @click="showYearPicker = 'start'">
                   {{ startMonth.format('YYYY年') }}
                 </button>
-                <button
-                  class="year-month-btn"
-                  @click="showMonthPicker = 'start'"
-                >
+                <button class="year-month-btn" @click="showMonthPicker = 'start'">
                   {{ startMonth.format('MM月') }}
                 </button>
               </div>
@@ -375,7 +457,7 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   v-for="year in yearList"
                   :key="year"
                   class="year-cell"
-                  :class="{ 'selected': year === startMonth.year() }"
+                  :class="{ selected: year === startMonth.year() }"
                   @click="handleYearSelect(year, 'start')"
                 >
                   {{ year }}
@@ -393,7 +475,7 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   v-for="month in monthList"
                   :key="month.value"
                   class="month-cell"
-                  :class="{ 'selected': month.value === startMonth.month() }"
+                  :class="{ selected: month.value === startMonth.month() }"
                   @click="handleMonthSelect(month.value, 'start')"
                 >
                   {{ month.label }}
@@ -418,8 +500,6 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   :key="day.valueOf()"
                   class="day-cell"
                   :class="getDateClass(day, startMonth)"
-                  :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
-                    || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
                   @click="handleDateClick(day)"
                 >
                   {{ day.date() }}
@@ -463,7 +543,7 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   v-for="year in yearList"
                   :key="year"
                   class="year-cell"
-                  :class="{ 'selected': year === endMonth.year() }"
+                  :class="{ selected: year === endMonth.year() }"
                   @click="handleYearSelect(year, 'end')"
                 >
                   {{ year }}
@@ -481,7 +561,7 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   v-for="month in monthList"
                   :key="month.value"
                   class="month-cell"
-                  :class="{ 'selected': month.value === endMonth.month() }"
+                  :class="{ selected: month.value === endMonth.month() }"
                   @click="handleMonthSelect(month.value, 'end')"
                 >
                   {{ month.label }}
@@ -506,8 +586,6 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
                   :key="day.valueOf()"
                   class="day-cell"
                   :class="getDateClass(day, endMonth)"
-                  :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
-                    || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
                   @click="handleDateClick(day)"
                 >
                   {{ day.date() }}
@@ -573,7 +651,7 @@ input {
 .error-icon {
   margin-left: 8px;
   color: #ff4d4f;
-  cursor: pointer;
+  cursor: help;
 }
 
 .picker-popup {
@@ -770,5 +848,25 @@ input {
 .month-cell.selected {
   background: #1890ff;
   color: white;
+}
+
+.error-icon {
+  margin-left: 8px;
+  color: #ff4d4f;
+  cursor: help;
+}
+
+input.error {
+  border-color: #ff4d4f;
+}
+
+.input-wrapper.has-error {
+  border-color: #ff4d4f;
+}
+
+.input-wrapper.has-error:hover,
+.input-wrapper.has-error:focus-within {
+  border-color: #ff4d4f;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1);
 }
 </style>
