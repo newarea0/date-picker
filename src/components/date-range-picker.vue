@@ -3,6 +3,7 @@ import type { Dayjs } from 'dayjs'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import { computed, ref } from 'vue'
+import { clickOutside } from '../directives/click-outside'
 
 interface Props {
   modelValue: [Date | null, Date | null]
@@ -27,6 +28,9 @@ const startDateText = ref('')
 const endDateText = ref('')
 const hasError = ref(false)
 const currentMonth = ref<Dayjs>(dayjs())
+
+// Add the directive registration
+const vClickOutside = clickOutside
 
 // 计算周显示
 const weekDays = computed(() => {
@@ -95,16 +99,28 @@ function nextMonth(): void {
 function closePicker(): void {
   showPicker.value = false
 }
+
+function togglePicker(event: Event): void {
+  // 阻止事件冒泡
+  event.stopPropagation()
+  showPicker.value = !showPicker.value
+}
+
+function handleInputFocus(event: Event): void {
+  event.stopPropagation()
+  showPicker.value = true
+}
 </script>
 
 <template>
-  <div class="date-range-picker">
+  <div class="date-range-picker" @click.stop>
     <div class="input-wrapper">
       <input
         v-model="startDateText"
         type="text"
         :placeholder="format"
-        @focus="showPicker = true"
+        @focus="handleInputFocus"
+        @click.stop
         @input="validateInput('start')"
       >
       <span class="separator">至</span>
@@ -112,12 +128,13 @@ function closePicker(): void {
         v-model="endDateText"
         type="text"
         :placeholder="format"
-        @focus="showPicker = true"
+        @focus="handleInputFocus"
+        @click.stop
         @input="validateInput('end')"
       >
       <CalendarOutlined
         class="calendar-icon"
-        @click="showPicker = !showPicker"
+        @click="togglePicker"
       />
       <div
         v-if="hasError"
@@ -133,6 +150,7 @@ function closePicker(): void {
         v-if="showPicker"
         v-click-outside="closePicker"
         class="picker-popup"
+        @click.stop
       >
         <div class="calendar-wrapper">
           <div class="calendar">
