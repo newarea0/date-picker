@@ -19,8 +19,8 @@ dayjs.extend(isSameOrAfter)
 dayjs.extend(isSameOrBefore)
 
 interface Props {
-  // 周开始日，0为周日，1为周一
   modelValue: [Date | null, Date | null]
+  // 周开始日，0为周日，1为周一
   dayStartOfWeek?: number
 }
 
@@ -32,8 +32,6 @@ const startDateText = ref('')
 const endDateText = ref('')
 // 输入框是否错误
 const hasError = ref(false)
-// 当前月份
-const currentMonth = ref<Dayjs>(dayjs())
 // 选中的开始日期
 const selectedStartDate = ref<Dayjs | null>(null)
 // 选中的结束日期
@@ -45,30 +43,6 @@ const isSelectingEndDate = ref(false)
 const weekDays = computed(() => {
   const days = ['日', '一', '二', '三', '四', '五', '六']
   return [...days.slice(props.dayStartOfWeek), ...days.slice(0, props.dayStartOfWeek)]
-})
-
-// 计算当前月的日期网格
-const daysInMonth = computed(() => {
-  const firstDay = currentMonth.value.startOf('month')
-  const lastDay = currentMonth.value.endOf('month')
-  const days: Dayjs[] = []
-
-  // 填充上个月的日期
-  const firstDayOfWeek = firstDay.day()
-  const prevMonthDays = (firstDayOfWeek - props.dayStartOfWeek + 7) % 7
-  for (let i = prevMonthDays - 1; i >= 0; i--)
-    days.push(firstDay.subtract(i + 1, 'day'))
-
-  // 当前月的日期
-  for (let i = 0; i < lastDay.date(); i++)
-    days.push(firstDay.add(i, 'day'))
-
-  // 填充下个月的日期
-  const remainingDays = 42 - days.length
-  for (let i = 1; i <= remainingDays; i++)
-    days.push(lastDay.add(i, 'day'))
-
-  return days
 })
 
 // 验证输入框的值
@@ -90,8 +64,7 @@ function validateInput(type: 'start' | 'end'): void {
       hasError.value = true
       return
     }
-  }
-  else {
+  } else {
     selectedEndDate.value = date
     // 如果已经有开始日期，检查顺序
     if (selectedStartDate.value && date.isBefore(selectedStartDate.value)) {
@@ -134,8 +107,7 @@ function handleInputBlur(type: 'start' | 'end'): void {
     if (type === 'start') {
       selectedStartDate.value = null
       startDateText.value = ''
-    }
-    else {
+    } else {
       selectedEndDate.value = null
       endDateText.value = ''
     }
@@ -153,8 +125,7 @@ function handleInputBlur(type: 'start' | 'end'): void {
       startDateText.value = selectedStartDate.value
         ? selectedStartDate.value.format(FORMAT)
         : ''
-    }
-    else {
+    } else {
       endDateText.value = selectedEndDate.value
         ? selectedEndDate.value.format(FORMAT)
         : ''
@@ -174,8 +145,7 @@ function handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
     selectedEndDate.value = null
     isSelectingEndDate.value = true
     startDateText.value = date.format(FORMAT)
-  }
-  else {
+  } else {
     // 选择结束日期
     if (date.isBefore(selectedStartDate.value)) {
       // 如果选择的结束日期在开始日期之前，交换它们
@@ -183,8 +153,7 @@ function handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
       selectedStartDate.value = date
       startDateText.value = date.format(FORMAT)
       endDateText.value = selectedEndDate.value.format(FORMAT)
-    }
-    else {
+    } else {
       selectedEndDate.value = date
       endDateText.value = date.format(FORMAT)
     }
@@ -242,8 +211,7 @@ watch(() => props.modelValue, ([start, end]) => {
   if (start) {
     selectedStartDate.value = dayjs(start)
     startDateText.value = selectedStartDate.value.format(FORMAT)
-  }
-  else {
+  } else {
     selectedStartDate.value = null
     startDateText.value = ''
   }
@@ -251,27 +219,22 @@ watch(() => props.modelValue, ([start, end]) => {
   if (end) {
     selectedEndDate.value = dayjs(end)
     endDateText.value = selectedEndDate.value.format(FORMAT)
-  }
-  else {
+  } else {
     selectedEndDate.value = null
     endDateText.value = ''
   }
 }, { immediate: true })
 
-// 弹框中开始日期月份
+// 弹框中开始日期月份，默认当前时间
 const startMonth = ref<Dayjs>(dayjs())
 // 弹框中结束日期月份
 const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
 
 // 计算开始月份的日期网格
-const startMonthDays = computed(() => {
-  return getMonthDays(startMonth.value)
-})
+const startMonthDays = computed(() => getMonthDays(startMonth.value))
 
 // 计算结束月份的日期网格
-const endMonthDays = computed(() => {
-  return getMonthDays(endMonth.value)
-})
+const endMonthDays = computed(() => getMonthDays(endMonth.value))
 
 // 提取日期网格计算逻辑到独立函数
 function getMonthDays(month: Dayjs) {
@@ -323,8 +286,9 @@ function nextEndMonth(): void {
   endMonth.value = endMonth.value.add(1, 'month')
 }
 
-// 添加年月选择的状态
+// 控制年份选择面板的显示/隐藏
 const showYearPicker = ref<'start' | 'end' | null>(null)
+// 控制月份选择面板的显示/隐藏
 const showMonthPicker = ref<'start' | 'end' | null>(null)
 
 // 生成年份列表
@@ -349,13 +313,10 @@ const monthList = computed(() => {
 function handleYearSelect(year: number, type: 'start' | 'end'): void {
   if (type === 'start') {
     startMonth.value = startMonth.value.year(year)
-    if (startMonth.value.isSameOrAfter(endMonth.value))
-      endMonth.value = startMonth.value.add(1, 'month')
-  }
-  else {
+    if (startMonth.value.isSameOrAfter(endMonth.value)) endMonth.value = startMonth.value.add(1, 'month')
+  } else {
     endMonth.value = endMonth.value.year(year)
-    if (endMonth.value.isSameOrBefore(startMonth.value))
-      startMonth.value = endMonth.value.subtract(1, 'month')
+    if (endMonth.value.isSameOrBefore(startMonth.value)) startMonth.value = endMonth.value.subtract(1, 'month')
   }
   showYearPicker.value = null
 }
@@ -364,15 +325,24 @@ function handleYearSelect(year: number, type: 'start' | 'end'): void {
 function handleMonthSelect(month: number, type: 'start' | 'end'): void {
   if (type === 'start') {
     startMonth.value = startMonth.value.month(month)
-    if (startMonth.value.isSameOrAfter(endMonth.value))
-      endMonth.value = startMonth.value.add(1, 'month')
-  }
-  else {
+    if (startMonth.value.isSameOrAfter(endMonth.value)) endMonth.value = startMonth.value.add(1, 'month')
+  } else {
     endMonth.value = endMonth.value.month(month)
-    if (endMonth.value.isSameOrBefore(startMonth.value))
-      startMonth.value = endMonth.value.subtract(1, 'month')
+    if (endMonth.value.isSameOrBefore(startMonth.value)) startMonth.value = endMonth.value.subtract(1, 'month')
   }
   showMonthPicker.value = null
+}
+
+// 处理年份点击事件
+function handleYearClick(type: 'start' | 'end'): void {
+  showMonthPicker.value = null
+  showYearPicker.value = type
+}
+
+// 处理月份点击事件
+function handleMonthClick(type: 'start' | 'end'): void {
+  showYearPicker.value = null
+  showMonthPicker.value = type
 }
 </script>
 
@@ -428,20 +398,12 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
           <!-- 开始日期日历 -->
           <div class="calendar">
             <div class="calendar-header">
-              <button @click="prevStartMonth">
-                ←
-              </button>
+              <button @click="prevStartMonth">←</button>
               <div class="year-month-selector">
-                <button class="year-month-btn" @click="showYearPicker = 'start'">
-                  {{ startMonth.format('YYYY年') }}
-                </button>
-                <button class="year-month-btn" @click="showMonthPicker = 'start'">
-                  {{ startMonth.format('MM月') }}
-                </button>
+                <button class="year-month-btn" @click="handleYearClick('start')">{{ startMonth.format('YYYY年') }}</button>
+                <button class="year-month-btn" @click="handleMonthClick('start')">{{ startMonth.format('MM月') }}</button>
               </div>
-              <button @click="nextStartMonth">
-                →
-              </button>
+              <button @click="nextStartMonth">→</button>
             </div>
 
             <!-- 年份选择面板 -->
@@ -509,26 +471,12 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
           <!-- 结束日期日历 -->
           <div class="calendar">
             <div class="calendar-header">
-              <button @click="prevEndMonth">
-                ←
-              </button>
+              <button @click="prevEndMonth">←</button>
               <div class="year-month-selector">
-                <button
-                  class="year-month-btn"
-                  @click="showYearPicker = 'end'"
-                >
-                  {{ endMonth.format('YYYY年') }}
-                </button>
-                <button
-                  class="year-month-btn"
-                  @click="showMonthPicker = 'end'"
-                >
-                  {{ endMonth.format('MM月') }}
-                </button>
+                <button class="year-month-btn" @click="handleYearClick('end')">{{ endMonth.format('YYYY年') }}</button>
+                <button class="year-month-btn" @click="handleMonthClick('end')">{{ endMonth.format('MM月') }}</button>
               </div>
-              <button @click="nextEndMonth">
-                →
-              </button>
+              <button @click="nextEndMonth">→</button>
             </div>
 
             <!-- 年份选择面板 -->
