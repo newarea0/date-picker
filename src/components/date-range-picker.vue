@@ -2,8 +2,21 @@
 import type { Dayjs } from 'dayjs'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
 import { computed, ref, watch } from 'vue'
 import { clickOutside } from '../directives/click-outside'
+
+const props = withDefaults(defineProps<Props>(), {
+  startDay: 0,
+  format: 'YYYY-MM-DD',
+})
+const emit = defineEmits<{
+  'update:modelValue': [value: [Date | null, Date | null]]
+  'change': [value: [Date | null, Date | null]]
+}>()
+dayjs.extend(isSameOrAfter)
+dayjs.extend(isSameOrBefore)
 
 interface Props {
   modelValue: [Date | null, Date | null]
@@ -12,16 +25,6 @@ interface Props {
   maxDate?: Date
   format?: string
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  startDay: 0,
-  format: 'YYYY-MM-DD',
-})
-
-const emit = defineEmits<{
-  'update:modelValue': [value: [Date | null, Date | null]]
-  'change': [value: [Date | null, Date | null]]
-}>()
 
 const showPicker = ref(false)
 const startDateText = ref('')
@@ -115,7 +118,7 @@ function handleDateClick(date: Dayjs): void {
   }
 }
 
-function getDateClass(day: Dayjs) {
+function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
   const isSelected = selectedStartDate.value?.isSame(day, 'day')
     || selectedEndDate.value?.isSame(day, 'day')
   const isInRange = selectedStartDate.value
@@ -124,7 +127,7 @@ function getDateClass(day: Dayjs) {
     && day.isBefore(selectedEndDate.value, 'day')
   const isDisabled = (props.minDate && day.isBefore(props.minDate, 'day'))
     || (props.maxDate && day.isAfter(props.maxDate, 'day'))
-  const isOtherMonth = day.month() !== currentMonth.value.month()
+  const isOtherMonth = day.month() !== currentDisplayMonth.month()
   const isStartDate = selectedStartDate.value?.isSame(day, 'day')
   const isEndDate = selectedEndDate.value?.isSame(day, 'day')
 
@@ -181,6 +184,67 @@ watch(() => props.modelValue, ([start, end]) => {
     endDateText.value = ''
   }
 }, { immediate: true })
+
+// 修改月份状态管理
+const startMonth = ref<Dayjs>(dayjs())
+const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
+
+// 计算开始月份的日期网格
+const startMonthDays = computed(() => {
+  return getMonthDays(startMonth.value)
+})
+
+// 计算结束月份的日期网格
+const endMonthDays = computed(() => {
+  return getMonthDays(endMonth.value)
+})
+
+// 提取日期网格计算逻辑到独立函数
+function getMonthDays(month: Dayjs) {
+  const firstDay = month.startOf('month')
+  const lastDay = month.endOf('month')
+  const days: Dayjs[] = []
+
+  // 填充上个月的日期
+  const firstDayOfWeek = firstDay.day()
+  const prevMonthDays = (firstDayOfWeek - props.startDay + 7) % 7
+  for (let i = prevMonthDays - 1; i >= 0; i--)
+    days.push(firstDay.subtract(i + 1, 'day'))
+
+  // 当前月的日期
+  for (let i = 0; i < lastDay.date(); i++)
+    days.push(firstDay.add(i, 'day'))
+
+  // 填充下个月的日期
+  const remainingDays = 42 - days.length
+  for (let i = 1; i <= remainingDays; i++)
+    days.push(lastDay.add(i, 'day'))
+
+  return days
+}
+
+// 月份导航函数
+function prevStartMonth(): void {
+  startMonth.value = startMonth.value.subtract(1, 'month')
+  if (startMonth.value.isSameOrAfter(endMonth.value))
+    endMonth.value = startMonth.value.add(1, 'month')
+}
+
+function nextStartMonth(): void {
+  startMonth.value = startMonth.value.add(1, 'month')
+  if (startMonth.value.isSameOrAfter(endMonth.value))
+    endMonth.value = startMonth.value.add(1, 'month')
+}
+
+function prevEndMonth(): void {
+  endMonth.value = endMonth.value.subtract(1, 'month')
+  if (endMonth.value.isSameOrBefore(startMonth.value))
+    startMonth.value = endMonth.value.subtract(1, 'month')
+}
+
+function nextEndMonth(): void {
+  endMonth.value = endMonth.value.add(1, 'month')
+}
 </script>
 
 <template>
@@ -224,13 +288,14 @@ watch(() => props.modelValue, ([start, end]) => {
         @click.stop
       >
         <div class="calendar-wrapper">
+          <!-- 开始日期日历 -->
           <div class="calendar">
             <div class="calendar-header">
-              <button @click="prevMonth">
+              <button @click="prevStartMonth">
                 ←
               </button>
-              <span>{{ currentMonth.format('YYYY年MM月') }}</span>
-              <button @click="nextMonth">
+              <span>{{ startMonth.format('YYYY年MM月') }}</span>
+              <button @click="nextStartMonth">
                 →
               </button>
             </div>
@@ -245,10 +310,45 @@ watch(() => props.modelValue, ([start, end]) => {
             </div>
             <div class="days-grid">
               <button
-                v-for="day in daysInMonth"
+                v-for="day in startMonthDays"
                 :key="day.valueOf()"
                 class="day-cell"
-                :class="getDateClass(day)"
+                :class="getDateClass(day, startMonth)"
+                :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
+                  || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
+                @click="handleDateClick(day)"
+              >
+                {{ day.date() }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 结束日期日历 -->
+          <div class="calendar">
+            <div class="calendar-header">
+              <button @click="prevEndMonth">
+                ←
+              </button>
+              <span>{{ endMonth.format('YYYY年MM月') }}</span>
+              <button @click="nextEndMonth">
+                →
+              </button>
+            </div>
+            <div class="weekdays">
+              <span
+                v-for="day in weekDays"
+                :key="day"
+                class="weekday"
+              >
+                {{ day }}
+              </span>
+            </div>
+            <div class="days-grid">
+              <button
+                v-for="day in endMonthDays"
+                :key="day.valueOf()"
+                class="day-cell"
+                :class="getDateClass(day, endMonth)"
                 :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
                   || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
                 @click="handleDateClick(day)"
@@ -328,9 +428,12 @@ input {
   border-radius: 8px;
   box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08);
   z-index: 1000;
+  min-width: 576px; /* 调整宽度以适应两个日历 */
 }
 
 .calendar-wrapper {
+  display: flex;
+  gap: 16px;
   padding: 8px;
 }
 
@@ -394,7 +497,8 @@ input {
 }
 
 .day-cell.other-month {
-  color: #d9d9d9;
+  color: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
 }
 
 .day-cell.disabled {
