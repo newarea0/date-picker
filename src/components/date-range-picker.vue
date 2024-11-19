@@ -38,6 +38,14 @@ const selectedStartDate = ref<Dayjs | null>(null)
 const selectedEndDate = ref<Dayjs | null>(null)
 // 是否在选择结束日期
 const isSelectingEndDate = ref(false)
+// 弹框中开始日期月份，默认当前时间
+const startMonth = ref<Dayjs>(dayjs())
+// 弹框中结束日期月份
+const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
+// 计算开始月份的日期网格
+const startMonthDays = computed(() => getMonthDays(startMonth.value))
+// 计算结束月份的日期网格
+const endMonthDays = computed(() => getMonthDays(endMonth.value))
 
 // 根据周开始日计算周显示
 const weekDays = computed(() => {
@@ -79,22 +87,16 @@ function validateInput(type: 'start' | 'end'): void {
 
 // 更新日期范围
 function updateDateRange(): void {
-  if (hasError.value)
-    return
-
-  let startDate: Date | null = null
-  let endDate: Date | null = null
-
-  if (selectedStartDate.value)
-    startDate = selectedStartDate.value.toDate()
-
-  if (selectedEndDate.value)
-    endDate = selectedEndDate.value.toDate()
-
-  // 只有当两个日期都有效或都为空时才更新
-  if ((startDate && endDate) || (!startDate && !endDate)) {
-    emit('update:modelValue', [startDate, endDate])
-    emit('change', [startDate, endDate])
+  // 只有当开始和结束日期都存在时才更新
+  if (selectedStartDate.value && selectedEndDate.value) {
+    emit('update:modelValue', [
+      selectedStartDate.value.toDate(),
+      selectedEndDate.value.toDate(),
+    ])
+    emit('change', [
+      selectedStartDate.value.toDate(),
+      selectedEndDate.value.toDate(),
+    ])
   }
 }
 
@@ -143,16 +145,17 @@ function handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
     // 选择开始日期
     selectedStartDate.value = date
     selectedEndDate.value = null
+    endDateText.value = ''
     isSelectingEndDate.value = true
     startDateText.value = date.format(FORMAT)
   } else {
     // 选择结束日期
-    if (date.isBefore(selectedStartDate.value)) {
+    if (date.isBefore(selectedStartDate.value!)) {
       // 如果选择的结束日期在开始日期之前，交换它们
       selectedEndDate.value = selectedStartDate.value
       selectedStartDate.value = date
       startDateText.value = date.format(FORMAT)
-      endDateText.value = selectedEndDate.value.format(FORMAT)
+      endDateText.value = selectedEndDate.value!.format(FORMAT)
     } else {
       selectedEndDate.value = date
       endDateText.value = date.format(FORMAT)
@@ -190,6 +193,12 @@ function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
 
 // 关闭弹框
 function closePicker(): void {
+  // 如果只选择了一个日期，清除选择状态
+  if (isSelectingEndDate.value) {
+    selectedStartDate.value = null
+    startDateText.value = ''
+    isSelectingEndDate.value = false
+  }
   showPicker.value = false
 }
 
@@ -206,36 +215,6 @@ function handleInputFocus(event: Event): void {
   showPicker.value = true
 }
 
-// 更新 watch 以处理 modelValue 的变化
-watch(() => props.modelValue, ([start, end]) => {
-  if (start) {
-    selectedStartDate.value = dayjs(start)
-    startDateText.value = selectedStartDate.value.format(FORMAT)
-  } else {
-    selectedStartDate.value = null
-    startDateText.value = ''
-  }
-
-  if (end) {
-    selectedEndDate.value = dayjs(end)
-    endDateText.value = selectedEndDate.value.format(FORMAT)
-  } else {
-    selectedEndDate.value = null
-    endDateText.value = ''
-  }
-}, { immediate: true })
-
-// 弹框中开始日期月份，默认当前时间
-const startMonth = ref<Dayjs>(dayjs())
-// 弹框中结束日期月份
-const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
-
-// 计算开始月份的日期网格
-const startMonthDays = computed(() => getMonthDays(startMonth.value))
-
-// 计算结束月份的日期网格
-const endMonthDays = computed(() => getMonthDays(endMonth.value))
-
 // 提取日期网格计算逻辑到独立函数
 function getMonthDays(month: Dayjs) {
   const firstDay = month.startOf('month')
@@ -249,13 +228,11 @@ function getMonthDays(month: Dayjs) {
     days.push(firstDay.subtract(i + 1, 'day'))
 
   // 当前月的日期
-  for (let i = 0; i < lastDay.date(); i++)
-    days.push(firstDay.add(i, 'day'))
+  for (let i = 0; i < lastDay.date(); i++) days.push(firstDay.add(i, 'day'))
 
   // 填充下个月的日期
   const remainingDays = 42 - days.length
-  for (let i = 1; i <= remainingDays; i++)
-    days.push(lastDay.add(i, 'day'))
+  for (let i = 1; i <= remainingDays; i++) days.push(lastDay.add(i, 'day'))
 
   return days
 }
@@ -344,6 +321,25 @@ function handleMonthClick(type: 'start' | 'end'): void {
   showYearPicker.value = null
   showMonthPicker.value = type
 }
+
+// 更新 watch 以处理 modelValue 的变化
+watch(() => props.modelValue, ([start, end]) => {
+  if (start) {
+    selectedStartDate.value = dayjs(start)
+    startDateText.value = selectedStartDate.value.format(FORMAT)
+  } else {
+    selectedStartDate.value = null
+    startDateText.value = ''
+  }
+
+  if (end) {
+    selectedEndDate.value = dayjs(end)
+    endDateText.value = selectedEndDate.value.format(FORMAT)
+  } else {
+    selectedEndDate.value = null
+    endDateText.value = ''
+  }
+}, { immediate: true })
 </script>
 
 <template>
