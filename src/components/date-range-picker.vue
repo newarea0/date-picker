@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import type { Dayjs } from 'dayjs'
 import { FORMAT } from '@/constants'
+import { clickOutside as vClickOutside } from '@/directives/click-outside'
+import { getMonthDays, getWeekDays } from '@/utils/date'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
-import { computed, ref, watch } from 'vue'
-import { clickOutside as vClickOutside } from '../directives/click-outside'
+
+interface Props {
+  modelValue: [Date | null, Date | null]
+  // 周开始日，0为周日，1为周一
+  dayStartOfWeek?: number
+}
 
 const props = withDefaults(defineProps<Props>(), {
   dayStartOfWeek: 0,
@@ -18,40 +24,48 @@ const emit = defineEmits<{
 dayjs.extend(isSameOrAfter)
 dayjs.extend(isSameOrBefore)
 
-interface Props {
-  modelValue: [Date | null, Date | null]
-  // 周开始日，0为周日，1为周一
-  dayStartOfWeek?: number
-}
-
 // 控制弹框的显示/隐藏
 const showPicker = ref(false)
+// 控制年份选择面板的显示/隐藏
+const showYearPicker = ref<'start' | 'end' | null>(null)
+// 控制月份选择面板的显示/隐藏
+const showMonthPicker = ref<'start' | 'end' | null>(null)
 // 开始日期输入框的值
 const startDateText = ref('')
 // 结束日期输入框的值
 const endDateText = ref('')
 // 输入框是否错误
 const hasError = ref(false)
+// 是否在选择结束日期
+const isSelectingEndDate = ref(false)
+// 用来存放开始日期的年、月，默认当前时间的年、月
+const startMonth = ref<Dayjs>(dayjs())
+// 用来存放结束日期的年、月，默认当前时间的年、月加1个月
+const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
 // 选中的开始日期
 const selectedStartDate = ref<Dayjs | null>(null)
 // 选中的结束日期
 const selectedEndDate = ref<Dayjs | null>(null)
-// 是否在选择结束日期
-const isSelectingEndDate = ref(false)
-// 弹框中开始日期月份，默认当前时间
-const startMonth = ref<Dayjs>(dayjs())
-// 弹框中结束日期月份
-const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
-// 计算开始月份的日期网格
-const startMonthDays = computed(() => getMonthDays(startMonth.value))
-// 计算结束月份的日期网格
-const endMonthDays = computed(() => getMonthDays(endMonth.value))
 
 // 根据周开始日计算周显示
-const weekDays = computed(() => {
-  const days = ['日', '一', '二', '三', '四', '五', '六']
-  return [...days.slice(props.dayStartOfWeek), ...days.slice(0, props.dayStartOfWeek)]
+const weekDays = computed(() => getWeekDays(props.dayStartOfWeek))
+// 计算开始月份的日期网格
+const startMonthDays = computed(() => getMonthDays(startMonth.value, props.dayStartOfWeek))
+// 计算结束月份的日期网格
+const endMonthDays = computed(() => getMonthDays(endMonth.value, props.dayStartOfWeek))
+// 生成年份列表
+const yearList = computed(() => {
+  const currentYear = dayjs().year()
+  const years: number[] = []
+  // 显示前后10年
+  for (let i = currentYear - 10; i <= currentYear + 10; i++) years.push(i)
+  return years
 })
+// 月份列表
+const monthList = Array.from({ length: 12 }, (_, i) => ({
+  value: i,
+  label: `${i + 1}月`,
+}))
 
 // 验证输入框的值
 function validateInput(type: 'start' | 'end'): void {
@@ -138,18 +152,18 @@ function handleInputBlur(type: 'start' | 'end'): void {
 // 处理日期点击事件
 function handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
   // 如果点击的不是当前月份的日期，则不处理
-  if (date.month() !== currentDisplayMonth.month())
-    return
+  if (date.month() !== currentDisplayMonth.month()) return
 
+  // 选择开始日期
   if (!isSelectingEndDate.value) {
-    // 选择开始日期
     selectedStartDate.value = date
     selectedEndDate.value = null
     endDateText.value = ''
     isSelectingEndDate.value = true
     startDateText.value = date.format(FORMAT)
-  } else {
-    // 选择结束日期
+  }
+  // 选择结束日期
+  else {
     if (date.isBefore(selectedStartDate.value!)) {
       // 如果选择的结束日期在开始日期之前，交换它们
       selectedEndDate.value = selectedStartDate.value
@@ -191,6 +205,17 @@ function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
   }
 }
 
+// 切换弹框的显示/隐藏
+function togglePicker(event: Event): void {
+  // 阻止事件冒泡
+  event.stopPropagation()
+  showPicker.value = !showPicker.value
+}
+// 处理输入框聚焦事件
+function handleInputFocus(event: Event): void {
+  event.stopPropagation()
+  showPicker.value = true
+}
 // 关闭弹框
 function closePicker(): void {
   // 如果只选择了一个日期，清除选择状态
@@ -201,90 +226,39 @@ function closePicker(): void {
   }
   showPicker.value = false
 }
-
-// 切换弹框的显示/隐藏
-function togglePicker(event: Event): void {
-  // 阻止事件冒泡
-  event.stopPropagation()
-  showPicker.value = !showPicker.value
+// 处理年份点击事件
+function handleYearClick(type: 'start' | 'end'): void {
+  showMonthPicker.value = null
+  showYearPicker.value = type
+}
+// 处理月份点击事件
+function handleMonthClick(type: 'start' | 'end'): void {
+  showYearPicker.value = null
+  showMonthPicker.value = type
 }
 
-// 处理输入框聚焦事件
-function handleInputFocus(event: Event): void {
-  event.stopPropagation()
-  showPicker.value = true
-}
-
-// 提取日期网格计算逻辑到独立函数
-function getMonthDays(month: Dayjs) {
-  const firstDay = month.startOf('month')
-  const lastDay = month.endOf('month')
-  const days: Dayjs[] = []
-
-  // 填充上个月的日期
-  const firstDayOfWeek = firstDay.day()
-  const prevMonthDays = (firstDayOfWeek - props.dayStartOfWeek + 7) % 7
-  for (let i = prevMonthDays - 1; i >= 0; i--)
-    days.push(firstDay.subtract(i + 1, 'day'))
-
-  // 当前月的日期
-  for (let i = 0; i < lastDay.date(); i++) days.push(firstDay.add(i, 'day'))
-
-  // 填充下个月的日期
-  const remainingDays = 42 - days.length
-  for (let i = 1; i <= remainingDays; i++) days.push(lastDay.add(i, 'day'))
-
-  return days
-}
-
-// 月份导航函数
+// 上一月
 function prevStartMonth(): void {
   startMonth.value = startMonth.value.subtract(1, 'month')
   if (startMonth.value.isSameOrAfter(endMonth.value))
     endMonth.value = startMonth.value.add(1, 'month')
 }
-
 // 下一月
 function nextStartMonth(): void {
   startMonth.value = startMonth.value.add(1, 'month')
   if (startMonth.value.isSameOrAfter(endMonth.value))
     endMonth.value = startMonth.value.add(1, 'month')
 }
-
 // 上一月
 function prevEndMonth(): void {
   endMonth.value = endMonth.value.subtract(1, 'month')
   if (endMonth.value.isSameOrBefore(startMonth.value))
     startMonth.value = endMonth.value.subtract(1, 'month')
 }
-
 // 下一月
 function nextEndMonth(): void {
   endMonth.value = endMonth.value.add(1, 'month')
 }
-
-// 控制年份选择面板的显示/隐藏
-const showYearPicker = ref<'start' | 'end' | null>(null)
-// 控制月份选择面板的显示/隐藏
-const showMonthPicker = ref<'start' | 'end' | null>(null)
-
-// 生成年份列表
-const yearList = computed(() => {
-  const currentYear = dayjs().year()
-  const years: number[] = []
-  // 显示前后10年
-  for (let i = currentYear - 10; i <= currentYear + 10; i++)
-    years.push(i)
-  return years
-})
-
-// 月份列表
-const monthList = computed(() => {
-  return Array.from({ length: 12 }, (_, i) => ({
-    value: i,
-    label: `${i + 1}月`,
-  }))
-})
 
 // 处理年份选择
 function handleYearSelect(year: number, type: 'start' | 'end'): void {
@@ -308,18 +282,6 @@ function handleMonthSelect(month: number, type: 'start' | 'end'): void {
     if (endMonth.value.isSameOrBefore(startMonth.value)) startMonth.value = endMonth.value.subtract(1, 'month')
   }
   showMonthPicker.value = null
-}
-
-// 处理年份点击事件
-function handleYearClick(type: 'start' | 'end'): void {
-  showMonthPicker.value = null
-  showYearPicker.value = type
-}
-
-// 处理月份点击事件
-function handleMonthClick(type: 'start' | 'end'): void {
-  showYearPicker.value = null
-  showMonthPicker.value = type
 }
 
 // 更新 watch 以处理 modelValue 的变化

@@ -8,6 +8,5 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     DateRangePicker: typeof import('./../components/date-range-picker.vue')['default']
-    HelloWorld: typeof import('./../components/hello-world.vue')['default']
   }
 }
