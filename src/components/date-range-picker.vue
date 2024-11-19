@@ -245,6 +245,58 @@ function prevEndMonth(): void {
 function nextEndMonth(): void {
   endMonth.value = endMonth.value.add(1, 'month')
 }
+
+// 添加年月选择的状态
+const showYearPicker = ref<'start' | 'end' | null>(null)
+const showMonthPicker = ref<'start' | 'end' | null>(null)
+
+// 生成年份列表
+const yearList = computed(() => {
+  const currentYear = dayjs().year()
+  const years: number[] = []
+  // 显示前后10年
+  for (let i = currentYear - 10; i <= currentYear + 10; i++)
+    years.push(i)
+  return years
+})
+
+// 月份列表
+const monthList = computed(() => {
+  return Array.from({ length: 12 }, (_, i) => ({
+    value: i,
+    label: `${i + 1}月`,
+  }))
+})
+
+// 处理年份选择
+function handleYearSelect(year: number, type: 'start' | 'end'): void {
+  if (type === 'start') {
+    startMonth.value = startMonth.value.year(year)
+    if (startMonth.value.isSameOrAfter(endMonth.value))
+      endMonth.value = startMonth.value.add(1, 'month')
+  }
+  else {
+    endMonth.value = endMonth.value.year(year)
+    if (endMonth.value.isSameOrBefore(startMonth.value))
+      startMonth.value = endMonth.value.subtract(1, 'month')
+  }
+  showYearPicker.value = null
+}
+
+// 处理月份选择
+function handleMonthSelect(month: number, type: 'start' | 'end'): void {
+  if (type === 'start') {
+    startMonth.value = startMonth.value.month(month)
+    if (startMonth.value.isSameOrAfter(endMonth.value))
+      endMonth.value = startMonth.value.add(1, 'month')
+  }
+  else {
+    endMonth.value = endMonth.value.month(month)
+    if (endMonth.value.isSameOrBefore(startMonth.value))
+      startMonth.value = endMonth.value.subtract(1, 'month')
+  }
+  showMonthPicker.value = null
+}
 </script>
 
 <template>
@@ -294,33 +346,86 @@ function nextEndMonth(): void {
               <button @click="prevStartMonth">
                 ←
               </button>
-              <span>{{ startMonth.format('YYYY年MM月') }}</span>
+              <div class="year-month-selector">
+                <button
+                  class="year-month-btn"
+                  @click="showYearPicker = 'start'"
+                >
+                  {{ startMonth.format('YYYY年') }}
+                </button>
+                <button
+                  class="year-month-btn"
+                  @click="showMonthPicker = 'start'"
+                >
+                  {{ startMonth.format('MM月') }}
+                </button>
+              </div>
               <button @click="nextStartMonth">
                 →
               </button>
             </div>
-            <div class="weekdays">
-              <span
-                v-for="day in weekDays"
-                :key="day"
-                class="weekday"
-              >
-                {{ day }}
-              </span>
+
+            <!-- 年份选择面板 -->
+            <div
+              v-if="showYearPicker === 'start'"
+              class="year-picker"
+            >
+              <div class="year-grid">
+                <button
+                  v-for="year in yearList"
+                  :key="year"
+                  class="year-cell"
+                  :class="{ 'selected': year === startMonth.year() }"
+                  @click="handleYearSelect(year, 'start')"
+                >
+                  {{ year }}
+                </button>
+              </div>
             </div>
-            <div class="days-grid">
-              <button
-                v-for="day in startMonthDays"
-                :key="day.valueOf()"
-                class="day-cell"
-                :class="getDateClass(day, startMonth)"
-                :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
-                  || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
-                @click="handleDateClick(day)"
-              >
-                {{ day.date() }}
-              </button>
+
+            <!-- 月份选择面板 -->
+            <div
+              v-else-if="showMonthPicker === 'start'"
+              class="month-picker"
+            >
+              <div class="month-grid">
+                <button
+                  v-for="month in monthList"
+                  :key="month.value"
+                  class="month-cell"
+                  :class="{ 'selected': month.value === startMonth.month() }"
+                  @click="handleMonthSelect(month.value, 'start')"
+                >
+                  {{ month.label }}
+                </button>
+              </div>
             </div>
+
+            <!-- 日期网格 -->
+            <template v-else>
+              <div class="weekdays">
+                <span
+                  v-for="day in weekDays"
+                  :key="day"
+                  class="weekday"
+                >
+                  {{ day }}
+                </span>
+              </div>
+              <div class="days-grid">
+                <button
+                  v-for="day in startMonthDays"
+                  :key="day.valueOf()"
+                  class="day-cell"
+                  :class="getDateClass(day, startMonth)"
+                  :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
+                    || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
+                  @click="handleDateClick(day)"
+                >
+                  {{ day.date() }}
+                </button>
+              </div>
+            </template>
           </div>
 
           <!-- 结束日期日历 -->
@@ -329,33 +434,86 @@ function nextEndMonth(): void {
               <button @click="prevEndMonth">
                 ←
               </button>
-              <span>{{ endMonth.format('YYYY年MM月') }}</span>
+              <div class="year-month-selector">
+                <button
+                  class="year-month-btn"
+                  @click="showYearPicker = 'end'"
+                >
+                  {{ endMonth.format('YYYY年') }}
+                </button>
+                <button
+                  class="year-month-btn"
+                  @click="showMonthPicker = 'end'"
+                >
+                  {{ endMonth.format('MM月') }}
+                </button>
+              </div>
               <button @click="nextEndMonth">
                 →
               </button>
             </div>
-            <div class="weekdays">
-              <span
-                v-for="day in weekDays"
-                :key="day"
-                class="weekday"
-              >
-                {{ day }}
-              </span>
+
+            <!-- 年份选择面板 -->
+            <div
+              v-if="showYearPicker === 'end'"
+              class="year-picker"
+            >
+              <div class="year-grid">
+                <button
+                  v-for="year in yearList"
+                  :key="year"
+                  class="year-cell"
+                  :class="{ 'selected': year === endMonth.year() }"
+                  @click="handleYearSelect(year, 'end')"
+                >
+                  {{ year }}
+                </button>
+              </div>
             </div>
-            <div class="days-grid">
-              <button
-                v-for="day in endMonthDays"
-                :key="day.valueOf()"
-                class="day-cell"
-                :class="getDateClass(day, endMonth)"
-                :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
-                  || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
-                @click="handleDateClick(day)"
-              >
-                {{ day.date() }}
-              </button>
+
+            <!-- 月份选择面板 -->
+            <div
+              v-else-if="showMonthPicker === 'end'"
+              class="month-picker"
+            >
+              <div class="month-grid">
+                <button
+                  v-for="month in monthList"
+                  :key="month.value"
+                  class="month-cell"
+                  :class="{ 'selected': month.value === endMonth.month() }"
+                  @click="handleMonthSelect(month.value, 'end')"
+                >
+                  {{ month.label }}
+                </button>
+              </div>
             </div>
+
+            <!-- 日期网格 -->
+            <template v-else>
+              <div class="weekdays">
+                <span
+                  v-for="day in weekDays"
+                  :key="day"
+                  class="weekday"
+                >
+                  {{ day }}
+                </span>
+              </div>
+              <div class="days-grid">
+                <button
+                  v-for="day in endMonthDays"
+                  :key="day.valueOf()"
+                  class="day-cell"
+                  :class="getDateClass(day, endMonth)"
+                  :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
+                    || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
+                  @click="handleDateClick(day)"
+                >
+                  {{ day.date() }}
+                </button>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -492,7 +650,7 @@ input {
   position: relative;
 }
 
-.day-cell:hover:not(.disabled) {
+.day-cell:hover:not(.disabled):not(.selected) {
   background: #f5f5f5;
 }
 
@@ -560,5 +718,57 @@ input {
 .slide-fade-leave-to {
   transform: translateY(-20px);
   opacity: 0;
+}
+
+.year-month-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.year-month-btn {
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.year-month-btn:hover {
+  background: #f5f5f5;
+}
+
+.year-picker,
+.month-picker {
+  padding: 8px;
+}
+
+.year-grid,
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 8px;
+}
+
+.year-cell,
+.month-cell {
+  padding: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.year-cell:hover,
+.month-cell:hover {
+  background: #f5f5f5;
+}
+
+.year-cell.selected,
+.month-cell.selected {
+  background: #1890ff;
+  color: white;
 }
 </style>
