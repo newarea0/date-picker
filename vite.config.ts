@@ -1,5 +1,7 @@
 import path from 'node:path'
 import vue from '@vitejs/plugin-vue'
+import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
+import Components from 'unplugin-vue-components/vite'
 import { defineConfig } from 'vite'
 import AutoImportPlugin from './vite/plugins/auto-import'
 import ComponentsPlugin from './vite/plugins/components'
@@ -10,6 +12,13 @@ export default defineConfig({
     vue(),
     AutoImportPlugin(),
     ComponentsPlugin(),
+    Components({
+      resolvers: [
+        AntDesignVueResolver({
+          importStyle: false,
+        }),
+      ],
+    }),
   ],
   resolve: {
     alias: {
