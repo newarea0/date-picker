@@ -2,7 +2,7 @@
 import type { Dayjs } from 'dayjs'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { clickOutside } from '../directives/click-outside'
 
 interface Props {
@@ -28,6 +28,9 @@ const startDateText = ref('')
 const endDateText = ref('')
 const hasError = ref(false)
 const currentMonth = ref<Dayjs>(dayjs())
+const selectedStartDate = ref<Dayjs | null>(null)
+const selectedEndDate = ref<Dayjs | null>(null)
+const isSelectingEndDate = ref(false)
 
 // Add the directive registration
 const vClickOutside = clickOutside
@@ -85,7 +88,54 @@ function updateDateRange(): void {
 }
 
 function handleDateClick(date: Dayjs): void {
-  // 实现日期选择逻辑
+  if (!isSelectingEndDate.value) {
+    // 选择开始日期
+    selectedStartDate.value = date
+    selectedEndDate.value = null
+    isSelectingEndDate.value = true
+    startDateText.value = date.format(props.format)
+  }
+  else {
+    // 选择结束日期
+    if (date.isBefore(selectedStartDate.value)) {
+      // 如果选择的结束日期在开始日期之前，交换它们
+      selectedEndDate.value = selectedStartDate.value
+      selectedStartDate.value = date
+      startDateText.value = date.format(props.format)
+      endDateText.value = selectedEndDate.value.format(props.format)
+    }
+    else {
+      selectedEndDate.value = date
+      endDateText.value = date.format(props.format)
+    }
+
+    isSelectingEndDate.value = false
+    updateDateRange()
+    showPicker.value = false
+  }
+}
+
+function getDateClass(day: Dayjs) {
+  const isSelected = selectedStartDate.value?.isSame(day, 'day')
+    || selectedEndDate.value?.isSame(day, 'day')
+  const isInRange = selectedStartDate.value
+    && selectedEndDate.value
+    && day.isAfter(selectedStartDate.value, 'day')
+    && day.isBefore(selectedEndDate.value, 'day')
+  const isDisabled = (props.minDate && day.isBefore(props.minDate, 'day'))
+    || (props.maxDate && day.isAfter(props.maxDate, 'day'))
+  const isOtherMonth = day.month() !== currentMonth.value.month()
+  const isStartDate = selectedStartDate.value?.isSame(day, 'day')
+  const isEndDate = selectedEndDate.value?.isSame(day, 'day')
+
+  return {
+    'selected': isSelected,
+    'in-range': isInRange,
+    'disabled': isDisabled,
+    'other-month': isOtherMonth,
+    'start-date': isStartDate,
+    'end-date': isEndDate,
+  }
 }
 
 function prevMonth(): void {
@@ -110,6 +160,27 @@ function handleInputFocus(event: Event): void {
   event.stopPropagation()
   showPicker.value = true
 }
+
+// 更新 watch 以处理 modelValue 的变化
+watch(() => props.modelValue, ([start, end]) => {
+  if (start) {
+    selectedStartDate.value = dayjs(start)
+    startDateText.value = selectedStartDate.value.format(props.format)
+  }
+  else {
+    selectedStartDate.value = null
+    startDateText.value = ''
+  }
+
+  if (end) {
+    selectedEndDate.value = dayjs(end)
+    endDateText.value = selectedEndDate.value.format(props.format)
+  }
+  else {
+    selectedEndDate.value = null
+    endDateText.value = ''
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -177,9 +248,9 @@ function handleInputFocus(event: Event): void {
                 v-for="day in daysInMonth"
                 :key="day.valueOf()"
                 class="day-cell"
-                :class="{
-                  'other-month': day.month() !== currentMonth.month(),
-                }"
+                :class="getDateClass(day)"
+                :disabled="(props.minDate && day.isBefore(props.minDate, 'day'))
+                  || (props.maxDate && day.isAfter(props.maxDate, 'day'))"
                 @click="handleDateClick(day)"
               >
                 {{ day.date() }}
@@ -315,14 +386,60 @@ input {
   cursor: pointer;
   border-radius: 4px;
   font-size: 14px;
+  position: relative;
 }
 
-.day-cell:hover {
+.day-cell:hover:not(.disabled) {
   background: #f5f5f5;
 }
 
 .day-cell.other-month {
   color: #d9d9d9;
+}
+
+.day-cell.disabled {
+  color: #d9d9d9;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+.day-cell.selected {
+  color: #fff;
+  background: #1890ff;
+}
+
+.day-cell.in-range {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.day-cell.start-date {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.day-cell.end-date {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.day-cell.start-date::after,
+.day-cell.end-date::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: #e6f7ff;
+  z-index: -1;
+}
+
+.day-cell.start-date::after {
+  right: 0;
+}
+
+.day-cell.end-date::after {
+  left: 0;
 }
 
 /* 动画效果 */
