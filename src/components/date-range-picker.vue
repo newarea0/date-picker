@@ -37,10 +37,10 @@ const endDateText = ref('')
 const hasError = ref(false)
 // 是否在选择结束日期
 const isSelectingEndDate = ref(false)
-// 用来存放开始日期的年、月，默认当前时间的年、月
-const startMonth = ref<Dayjs>(dayjs())
-// 用来存放结束日期的年、月，默认当前时间的年、月加1个月
-const endMonth = ref<Dayjs>(dayjs().add(1, 'month'))
+// 只用来存放开始日期的年、月，默认当前时间的年、月
+const startYearMonth = ref<Dayjs>(dayjs())
+// 只用来存放结束日期的年、月，默认当前时间的年、月加1个月
+const endYearMonth = ref<Dayjs>(dayjs().add(1, 'month'))
 // 选中的开始日期
 const selectedStartDate = ref<Dayjs | null>(null)
 // 选中的结束日期
@@ -49,9 +49,9 @@ const selectedEndDate = ref<Dayjs | null>(null)
 // 根据周开始日计算周显示
 const weekDays = computed(() => getWeekDays(props.dayStartOfWeek))
 // 计算开始月份的日期网格
-const startMonthDays = computed(() => getMonthDays(startMonth.value, props.dayStartOfWeek))
+const startMonthDays = computed(() => getMonthDays(startYearMonth.value, props.dayStartOfWeek))
 // 计算结束月份的日期网格
-const endMonthDays = computed(() => getMonthDays(endMonth.value, props.dayStartOfWeek))
+const endMonthDays = computed(() => getMonthDays(endYearMonth.value, props.dayStartOfWeek))
 // 生成年份列表
 const yearList = computed(() => {
   const currentYear = dayjs().year()
@@ -152,10 +152,10 @@ function handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
   // 选择开始日期
   if (!isSelectingEndDate.value) {
     selectedStartDate.value = date
+    startDateText.value = date.format(FORMAT)
     selectedEndDate.value = null
     endDateText.value = ''
     isSelectingEndDate.value = true
-    startDateText.value = date.format(FORMAT)
   }
   // 选择结束日期
   else {
@@ -234,35 +234,33 @@ function handleMonthClick(type: 'start' | 'end'): void {
 
 // 上一月
 function prevStartMonth(): void {
-  startMonth.value = startMonth.value.subtract(1, 'month')
-  if (startMonth.value.isSameOrAfter(endMonth.value))
-    endMonth.value = startMonth.value.add(1, 'month')
+  startYearMonth.value = startYearMonth.value.subtract(1, 'month')
 }
 // 下一月
 function nextStartMonth(): void {
-  startMonth.value = startMonth.value.add(1, 'month')
-  if (startMonth.value.isSameOrAfter(endMonth.value))
-    endMonth.value = startMonth.value.add(1, 'month')
+  startYearMonth.value = startYearMonth.value.add(1, 'month')
+  if (startYearMonth.value.isSameOrAfter(endYearMonth.value)) endYearMonth.value = startYearMonth.value.add(1, 'month')
 }
 // 上一月
 function prevEndMonth(): void {
-  endMonth.value = endMonth.value.subtract(1, 'month')
-  if (endMonth.value.isSameOrBefore(startMonth.value))
-    startMonth.value = endMonth.value.subtract(1, 'month')
+  endYearMonth.value = endYearMonth.value.subtract(1, 'month')
+  if (endYearMonth.value.isSameOrBefore(startYearMonth.value)) startYearMonth.value = endYearMonth.value.subtract(1, 'month')
 }
 // 下一月
 function nextEndMonth(): void {
-  endMonth.value = endMonth.value.add(1, 'month')
+  endYearMonth.value = endYearMonth.value.add(1, 'month')
 }
 
 // 处理年份选择
 function handleYearSelect(year: number, type: 'start' | 'end'): void {
   if (type === 'start') {
-    startMonth.value = startMonth.value.year(year)
-    if (startMonth.value.isSameOrAfter(endMonth.value)) endMonth.value = startMonth.value.add(1, 'month')
+    startYearMonth.value = startYearMonth.value.year(year)
+    // 因为结束日期面板年月不能小于开始日期面板年月，所以当开始日期面板年月在结束日期面板年月之后时，结束日期面板年月也要跟着变化
+    if (startYearMonth.value.isSameOrAfter(endYearMonth.value)) endYearMonth.value = startYearMonth.value.add(1, 'month')
   } else {
-    endMonth.value = endMonth.value.year(year)
-    if (endMonth.value.isSameOrBefore(startMonth.value)) startMonth.value = endMonth.value.subtract(1, 'month')
+    endYearMonth.value = endYearMonth.value.year(year)
+    // 因为结束日期面板年月不能小于开始日期面板年月，所以当结束日期面板年月在开始日期面板年月之前时，开始日期面板年月也要跟着变化
+    if (endYearMonth.value.isSameOrBefore(startYearMonth.value)) startYearMonth.value = endYearMonth.value.subtract(1, 'month')
   }
   showYearPicker.value = null
 }
@@ -270,11 +268,13 @@ function handleYearSelect(year: number, type: 'start' | 'end'): void {
 // 处理月份选择
 function handleMonthSelect(month: number, type: 'start' | 'end'): void {
   if (type === 'start') {
-    startMonth.value = startMonth.value.month(month)
-    if (startMonth.value.isSameOrAfter(endMonth.value)) endMonth.value = startMonth.value.add(1, 'month')
+    startYearMonth.value = startYearMonth.value.month(month)
+    // 因为结束日期面板年月不能小于开始日期面板年月，所以当开始日期面板年月在结束日期面板年月之后时，结束日期面板年月也要跟着变化
+    if (startYearMonth.value.isSameOrAfter(endYearMonth.value)) endYearMonth.value = startYearMonth.value.add(1, 'month')
   } else {
-    endMonth.value = endMonth.value.month(month)
-    if (endMonth.value.isSameOrBefore(startMonth.value)) startMonth.value = endMonth.value.subtract(1, 'month')
+    endYearMonth.value = endYearMonth.value.month(month)
+    // 因为结束日期面板年月不能小于开始日期面板年月，所以当结束日期面板年月在开始日期面板年月之前时，开始日期面板年月也要跟着变化
+    if (endYearMonth.value.isSameOrBefore(startYearMonth.value)) startYearMonth.value = endYearMonth.value.subtract(1, 'month')
   }
   showMonthPicker.value = null
 }
@@ -353,8 +353,8 @@ watch(() => props.modelValue, ([start, end]) => {
             <div class="calendar-header">
               <button @click="prevStartMonth">←</button>
               <div class="year-month-selector">
-                <button class="year-month-btn" @click="handleYearClick('start')">{{ startMonth.format('YYYY年') }}</button>
-                <button class="year-month-btn" @click="handleMonthClick('start')">{{ startMonth.format('MM月') }}</button>
+                <button class="year-month-btn" @click="handleYearClick('start')">{{ startYearMonth.format('YYYY年') }}</button>
+                <button class="year-month-btn" @click="handleMonthClick('start')">{{ startYearMonth.format('MM月') }}</button>
               </div>
               <button @click="nextStartMonth">→</button>
             </div>
@@ -369,7 +369,7 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="year in yearList"
                   :key="year"
                   class="year-cell"
-                  :class="{ selected: year === startMonth.year() }"
+                  :class="{ selected: year === startYearMonth.year() }"
                   @click="handleYearSelect(year, 'start')"
                 >
                   {{ year }}
@@ -387,7 +387,7 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="month in monthList"
                   :key="month.value"
                   class="month-cell"
-                  :class="{ selected: month.value === startMonth.month() }"
+                  :class="{ selected: month.value === startYearMonth.month() }"
                   @click="handleMonthSelect(month.value, 'start')"
                 >
                   {{ month.label }}
@@ -411,9 +411,9 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="day in startMonthDays"
                   :key="day.valueOf()"
                   class="day-cell"
-                  :class="getDateClass(day, startMonth)"
-                  :disabled="day.month() !== startMonth.month()"
-                  @click="handleDateClick(day, startMonth)"
+                  :class="getDateClass(day, startYearMonth)"
+                  :disabled="day.month() !== startYearMonth.month()"
+                  @click="handleDateClick(day, startYearMonth)"
                 >
                   {{ day.date() }}
                 </button>
@@ -426,8 +426,8 @@ watch(() => props.modelValue, ([start, end]) => {
             <div class="calendar-header">
               <button @click="prevEndMonth">←</button>
               <div class="year-month-selector">
-                <button class="year-month-btn" @click="handleYearClick('end')">{{ endMonth.format('YYYY年') }}</button>
-                <button class="year-month-btn" @click="handleMonthClick('end')">{{ endMonth.format('MM月') }}</button>
+                <button class="year-month-btn" @click="handleYearClick('end')">{{ endYearMonth.format('YYYY年') }}</button>
+                <button class="year-month-btn" @click="handleMonthClick('end')">{{ endYearMonth.format('MM月') }}</button>
               </div>
               <button @click="nextEndMonth">→</button>
             </div>
@@ -442,7 +442,7 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="year in yearList"
                   :key="year"
                   class="year-cell"
-                  :class="{ selected: year === endMonth.year() }"
+                  :class="{ selected: year === endYearMonth.year() }"
                   @click="handleYearSelect(year, 'end')"
                 >
                   {{ year }}
@@ -460,7 +460,7 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="month in monthList"
                   :key="month.value"
                   class="month-cell"
-                  :class="{ selected: month.value === endMonth.month() }"
+                  :class="{ selected: month.value === endYearMonth.month() }"
                   @click="handleMonthSelect(month.value, 'end')"
                 >
                   {{ month.label }}
@@ -484,9 +484,9 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="day in endMonthDays"
                   :key="day.valueOf()"
                   class="day-cell"
-                  :class="getDateClass(day, endMonth)"
-                  :disabled="day.month() !== endMonth.month()"
-                  @click="handleDateClick(day, endMonth)"
+                  :class="getDateClass(day, endYearMonth)"
+                  :disabled="day.month() !== endYearMonth.month()"
+                  @click="handleDateClick(day, endYearMonth)"
                 >
                   {{ day.date() }}
                 </button>
