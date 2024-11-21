@@ -2,7 +2,7 @@
 import type { Dayjs } from 'dayjs'
 import { FORMAT } from '@/constants'
 import { clickOutside as vClickOutside } from '@/directives/click-outside'
-import { getMonthDays, getWeekDays } from '@/utils/date'
+import { getMonthDays, getMonthList, getWeekDays, getYearList } from '@/utils/date'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
@@ -45,6 +45,8 @@ const endYearMonth = ref<Dayjs>(dayjs().add(1, 'month'))
 const selectedStartDate = ref<Dayjs | null>(null)
 // 选中的结束日期
 const selectedEndDate = ref<Dayjs | null>(null)
+// 年份范围的起始年份
+const yearRangeStart = ref(dayjs().year() - 7)
 
 // 根据周开始日计算周显示
 const weekDays = computed(() => getWeekDays(props.dayStartOfWeek))
@@ -52,24 +54,11 @@ const weekDays = computed(() => getWeekDays(props.dayStartOfWeek))
 const startMonthDays = computed(() => getMonthDays(startYearMonth.value, props.dayStartOfWeek))
 // 计算结束月份的日期网格
 const endMonthDays = computed(() => getMonthDays(endYearMonth.value, props.dayStartOfWeek))
-// 年份范围的起始年份
-const yearRangeStart = ref(dayjs().year() - 10)
 
 // 修改 yearList computed
-const yearList = computed(() => {
-  const years: number[] = []
-  // 显示从 yearRangeStart 开始的21年
-  for (let i = yearRangeStart.value; i < yearRangeStart.value + 21; i++) {
-    years.push(i)
-  }
-  return years
-})
-
+const yearList = computed(() => getYearList(yearRangeStart.value))
 // 月份列表
-const monthList = Array.from({ length: 12 }, (_, i) => ({
-  value: i,
-  label: `${i + 1}月`,
-}))
+const monthList = getMonthList()
 
 // 更新日期范围
 function updateDateRange(): void {
@@ -115,7 +104,9 @@ function validateInput(type: 'start' | 'end'): void {
 }
 
 // 添加输入框失焦事件处理
-function handleInputBlur(type: 'start' | 'end'): void {
+function handleInputBlur(type: 'start' | 'end', event: Event): void {
+  if ((event.relatedTarget as HTMLElement)?.classList.contains('day-cell')) return
+
   const text = type === 'start' ? startDateText.value : endDateText.value
 
   // 如果输入框为空，清除对应的日期
@@ -230,7 +221,9 @@ function closePicker(): void {
     selectedStartDate.value = null
     startDateText.value = ''
     isSelectingEndDate.value = false
+    emit('update:modelValue', [null, null])
   }
+  hasError.value = false
   showPicker.value = false
 }
 // 处理年份点击事件
@@ -246,12 +239,12 @@ function handleMonthClick(type: 'start' | 'end'): void {
 
 // 开始日期面板左侧按钮
 function prevStartMonth(): void {
-  if (showYearPicker.value === 'start') yearRangeStart.value -= 21
+  if (showYearPicker.value === 'start') yearRangeStart.value -= 15
   else startYearMonth.value = startYearMonth.value.subtract(1, 'month')
 }
 // 开始日期面板右侧按钮
 function nextStartMonth(): void {
-  if (showYearPicker.value === 'start') yearRangeStart.value += 21
+  if (showYearPicker.value === 'start') yearRangeStart.value += 15
   else {
     startYearMonth.value = startYearMonth.value.add(1, 'month')
     if (startYearMonth.value.isSameOrAfter(endYearMonth.value)) endYearMonth.value = startYearMonth.value.add(1, 'month')
@@ -259,7 +252,7 @@ function nextStartMonth(): void {
 }
 // 结束日期面板左侧按钮
 function prevEndMonth(): void {
-  if (showYearPicker.value === 'end') yearRangeStart.value -= 21
+  if (showYearPicker.value === 'end') yearRangeStart.value -= 15
   else {
     endYearMonth.value = endYearMonth.value.subtract(1, 'month')
     if (endYearMonth.value.isSameOrBefore(startYearMonth.value)) startYearMonth.value = endYearMonth.value.subtract(1, 'month')
@@ -267,7 +260,7 @@ function prevEndMonth(): void {
 }
 // 结束日期面板右侧按钮
 function nextEndMonth(): void {
-  if (showYearPicker.value === 'end') yearRangeStart.value += 21
+  if (showYearPicker.value === 'end') yearRangeStart.value += 15
   else endYearMonth.value = endYearMonth.value.add(1, 'month')
 }
 
@@ -329,7 +322,7 @@ watch(() => props.modelValue, ([start, end]) => {
         type="text"
         :placeholder="FORMAT"
         @focus="handleInputFocus"
-        @blur="handleInputBlur('start')"
+        @blur="handleInputBlur('start', $event)"
         @click.stop
         @input="validateInput('start')"
       >
@@ -341,15 +334,10 @@ watch(() => props.modelValue, ([start, end]) => {
         type="text"
         :placeholder="FORMAT"
         @focus="handleInputFocus"
-        @blur="handleInputBlur('end')"
+        @blur="handleInputBlur('end', $event)"
         @click.stop
         @input="validateInput('end')"
       >
-      <!-- 日历图标 -->
-      <CalendarOutlined
-        class="calendar-icon"
-        @click="togglePicker"
-      />
       <div
         v-if="hasError"
         class="error-icon"
@@ -357,6 +345,12 @@ watch(() => props.modelValue, ([start, end]) => {
       >
         ⚠️
       </div>
+      <!-- 日历图标 -->
+      <CalendarOutlined
+        v-else
+        class="calendar-icon"
+        @click="togglePicker"
+      />
     </div>
 
     <!-- 日期选择弹框 -->

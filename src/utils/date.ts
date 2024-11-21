@@ -1,5 +1,21 @@
 import type { Dayjs } from 'dayjs'
 
+export function getMonthList() {
+  return Array.from({ length: 12 }, (_, i) => ({
+    value: i,
+    label: `${i + 1}月`,
+  }))
+}
+
+export function getYearList(startYear: number) {
+  const years: number[] = []
+  // 显示从 yearRangeStart 开始的15年
+  for (let i = startYear; i < startYear + 15; i++) {
+    years.push(i)
+  }
+  return years
+}
+
 /**
  * 根据周开始日计算周显示
  * @param dayStartOfWeek 周开始日，0为周日，1为周一
