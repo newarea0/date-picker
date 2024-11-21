@@ -365,12 +365,22 @@ watch(() => props.modelValue, ([start, end]) => {
           <!-- 开始日期日历 -->
           <div class="calendar">
             <div class="calendar-header">
-              <button @click="prevStartMonth">←</button>
+              <button
+                :disabled="showMonthPicker === 'start'"
+                @click="prevStartMonth"
+              >
+                ←
+              </button>
               <div class="year-month-selector">
                 <button class="year-month-btn" @click="handleYearClick('start')">{{ startYearMonth.format('YYYY年') }}</button>
                 <button class="year-month-btn" @click="handleMonthClick('start')">{{ startYearMonth.format('MM月') }}</button>
               </div>
-              <button @click="nextStartMonth">→</button>
+              <button
+                :disabled="showMonthPicker === 'start'"
+                @click="nextStartMonth"
+              >
+                →
+              </button>
             </div>
 
             <!-- 年份选择面板 -->
@@ -438,12 +448,22 @@ watch(() => props.modelValue, ([start, end]) => {
           <!-- 结束日期日历 -->
           <div class="calendar">
             <div class="calendar-header">
-              <button @click="prevEndMonth">←</button>
+              <button
+                :disabled="showMonthPicker === 'end'"
+                @click="prevEndMonth"
+              >
+                ←
+              </button>
               <div class="year-month-selector">
                 <button class="year-month-btn" @click="handleYearClick('end')">{{ endYearMonth.format('YYYY年') }}</button>
                 <button class="year-month-btn" @click="handleMonthClick('end')">{{ endYearMonth.format('MM月') }}</button>
               </div>
-              <button @click="nextEndMonth">→</button>
+              <button
+                :disabled="showMonthPicker === 'end'"
+                @click="nextEndMonth"
+              >
+                →
+              </button>
             </div>
 
             <!-- 年份选择面板 -->
