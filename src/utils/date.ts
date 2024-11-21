@@ -9,7 +9,6 @@ export function getMonthList() {
 
 export function getYearList(startYear: number) {
   const years: number[] = []
-  // 显示从 yearRangeStart 开始的15年
   for (let i = startYear; i < startYear + 15; i++) {
     years.push(i)
   }
