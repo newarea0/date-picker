@@ -6,5 +6,6 @@ export default antfu({
     'style/brace-style': 'off',
     'vue/singleline-html-element-content-newline': 'off',
     'antfu/if-newline': 'off',
+    'antfu/curly': 'off',
   },
 })

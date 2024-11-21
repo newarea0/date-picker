@@ -31,7 +31,7 @@ const showYearPicker = ref<'start' | 'end' | null>(null)
 const showMonthPicker = ref<'start' | 'end' | null>(null)
 // 开始日期输入框的值
 const startDateText = ref('')
-// 结束日期输入框的值
+// 结束日期输入框值
 const endDateText = ref('')
 // 输入框是否错误
 const hasError = ref(false)
@@ -52,14 +52,19 @@ const weekDays = computed(() => getWeekDays(props.dayStartOfWeek))
 const startMonthDays = computed(() => getMonthDays(startYearMonth.value, props.dayStartOfWeek))
 // 计算结束月份的日期网格
 const endMonthDays = computed(() => getMonthDays(endYearMonth.value, props.dayStartOfWeek))
-// 生成年份列表
+// 年份范围的起始年份
+const yearRangeStart = ref(dayjs().year() - 10)
+
+// 修改 yearList computed
 const yearList = computed(() => {
-  const currentYear = dayjs().year()
   const years: number[] = []
-  // 显示前后10年
-  for (let i = currentYear - 10; i <= currentYear + 10; i++) years.push(i)
+  // 显示从 yearRangeStart 开始的21年
+  for (let i = yearRangeStart.value; i < yearRangeStart.value + 21; i++) {
+    years.push(i)
+  }
   return years
 })
+
 // 月份列表
 const monthList = Array.from({ length: 12 }, (_, i) => ({
   value: i,
@@ -234,21 +239,29 @@ function handleMonthClick(type: 'start' | 'end'): void {
 
 // 上一月
 function prevStartMonth(): void {
-  startYearMonth.value = startYearMonth.value.subtract(1, 'month')
+  if (showYearPicker.value === 'start') yearRangeStart.value -= 21
+  else startYearMonth.value = startYearMonth.value.subtract(1, 'month')
 }
 // 下一月
 function nextStartMonth(): void {
-  startYearMonth.value = startYearMonth.value.add(1, 'month')
-  if (startYearMonth.value.isSameOrAfter(endYearMonth.value)) endYearMonth.value = startYearMonth.value.add(1, 'month')
+  if (showYearPicker.value === 'start') yearRangeStart.value += 21
+  else {
+    startYearMonth.value = startYearMonth.value.add(1, 'month')
+    if (startYearMonth.value.isSameOrAfter(endYearMonth.value)) endYearMonth.value = startYearMonth.value.add(1, 'month')
+  }
 }
 // 上一月
 function prevEndMonth(): void {
-  endYearMonth.value = endYearMonth.value.subtract(1, 'month')
-  if (endYearMonth.value.isSameOrBefore(startYearMonth.value)) startYearMonth.value = endYearMonth.value.subtract(1, 'month')
+  if (showYearPicker.value === 'end') yearRangeStart.value -= 21
+  else {
+    endYearMonth.value = endYearMonth.value.subtract(1, 'month')
+    if (endYearMonth.value.isSameOrBefore(startYearMonth.value)) startYearMonth.value = endYearMonth.value.subtract(1, 'month')
+  }
 }
 // 下一月
 function nextEndMonth(): void {
-  endYearMonth.value = endYearMonth.value.add(1, 'month')
+  if (showYearPicker.value === 'end') yearRangeStart.value += 21
+  else endYearMonth.value = endYearMonth.value.add(1, 'month')
 }
 
 // 处理年份选择
@@ -500,5 +513,4 @@ watch(() => props.modelValue, ([start, end]) => {
 </template>
 
 <style scoped>
-
 </style>
