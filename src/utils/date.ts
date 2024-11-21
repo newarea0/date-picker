@@ -1,5 +1,9 @@
 import type { Dayjs } from 'dayjs'
 
+/**
+ * 获取月份列表
+ * @returns 月份列表
+ */
 export function getMonthList() {
   return Array.from({ length: 12 }, (_, i) => ({
     value: i,
@@ -7,6 +11,11 @@ export function getMonthList() {
   }))
 }
 
+/**
+ * 获取年份列表
+ * @param startYear 开始年份
+ * @returns 年份列表
+ */
 export function getYearList(startYear: number) {
   const years: number[] = []
   for (let i = startYear; i < startYear + 15; i++) {
@@ -49,4 +58,34 @@ export function getMonthDays(month: Dayjs, dayStartOfWeek: number) {
   for (let i = 1; i <= remainingDays; i++) days.push(lastDay.add(i, 'day'))
 
   return days
+}
+
+/**
+ * 获取日期单元格的样式
+ * @param day 日期
+ * @param currentDisplayMonth 当前显示的月份
+ * @param selectedStartDate 选中的开始日期
+ * @param selectedEndDate 选中的结束日期
+ * @returns 日期单元格的样式
+ */
+export function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs, selectedStartDate: Dayjs | null, selectedEndDate: Dayjs | null) {
+  const isCurrentMonth = day.month() === currentDisplayMonth.month()
+  const isSelected = selectedStartDate?.isSame(day, 'day') || selectedEndDate?.isSame(day, 'day')
+  const isInRange = selectedStartDate
+    && selectedEndDate
+    && day.isAfter(selectedStartDate, 'day')
+    && day.isBefore(selectedEndDate, 'day')
+    && isCurrentMonth // 只有当前月份的日期才显示范围样式
+  const isOtherMonth = !isCurrentMonth
+  const isStartDate = selectedStartDate?.isSame(day, 'day') && isCurrentMonth
+  const isEndDate = selectedEndDate?.isSame(day, 'day') && isCurrentMonth
+
+  return {
+    'selected': isSelected && isCurrentMonth,
+    'in-range': isInRange,
+    'other-month': isOtherMonth,
+    'start-date': isStartDate,
+    'end-date': isEndDate,
+    'current-month': isCurrentMonth,
+  }
 }

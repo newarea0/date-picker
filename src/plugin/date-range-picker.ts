@@ -1,6 +1,6 @@
 import type { Dayjs } from 'dayjs'
 import { FORMAT } from '@/constants'
-import { getMonthDays, getWeekDays } from '@/utils/date'
+import { getDateClass, getMonthDays, getWeekDays } from '@/utils/date'
 import dayjs from 'dayjs'
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
@@ -31,6 +31,7 @@ export class DateRangePicker {
   private selectedStartDate: Dayjs | null = null
   private selectedEndDate: Dayjs | null = null
   private onChange?: (dates: [Date | null, Date | null]) => void
+  private yearRangeStart: number = dayjs().year() - 7
 
   constructor(options: DateRangePickerOptions) {
     this.element = options.element
@@ -118,6 +119,7 @@ export class DateRangePicker {
     }
   }
 
+  // 渲染弹框
   private renderDatePicker(): void {
     if (this.pickerPopup) {
       this.pickerPopup.remove()
@@ -138,6 +140,7 @@ export class DateRangePicker {
     this.container.appendChild(this.pickerPopup)
   }
 
+  // 渲染日历
   private renderCalendar(type: 'start' | 'end'): HTMLElement {
     const calendar = document.createElement('div')
     calendar.className = 'calendar'
@@ -147,11 +150,12 @@ export class DateRangePicker {
     calendar.appendChild(header)
 
     // 根据当前显示的面板类型渲染不同的内容
-    if (this.showYearPicker === type) {
-      calendar.appendChild(this.renderYearPicker(type))
-    } else if (this.showMonthPicker === type) {
-      calendar.appendChild(this.renderMonthPicker(type))
-    } else {
+    // 年份选择面板
+    if (this.showYearPicker === type) calendar.appendChild(this.renderYearPicker(type))
+    // 月份选择面板
+    else if (this.showMonthPicker === type) calendar.appendChild(this.renderMonthPicker(type))
+    // 日期选择面板
+    else {
       // 渲染星期行
       const weekRow = this.renderWeekRow()
       calendar.appendChild(weekRow)
@@ -170,11 +174,19 @@ export class DateRangePicker {
 
     const month = type === 'start' ? this.startMonth : this.endMonth
 
+    // 添加左箭头按钮，当显示月份选择面板时禁用
     const prevBtn = document.createElement('button')
     prevBtn.textContent = '←'
+    if (this.showMonthPicker === type) {
+      prevBtn.disabled = true
+    }
     prevBtn.onclick = (e) => {
       e.stopPropagation()
-      this.changeMonth(type, 'prev')
+      if (this.showYearPicker === type) {
+        this.yearRangeStart -= 21
+      } else {
+        this.changeMonth(type, 'prev')
+      }
     }
 
     // 创建年月选择器容器
@@ -202,11 +214,19 @@ export class DateRangePicker {
     yearMonthSelector.appendChild(yearBtn)
     yearMonthSelector.appendChild(monthBtn)
 
+    // 添加右箭头按钮，当显示月份选择面板时禁用
     const nextBtn = document.createElement('button')
     nextBtn.textContent = '→'
+    if (this.showMonthPicker === type) {
+      nextBtn.disabled = true
+    }
     nextBtn.onclick = (e) => {
       e.stopPropagation()
-      this.changeMonth(type, 'next')
+      if (this.showYearPicker === type) {
+        this.yearRangeStart += 21
+      } else {
+        this.changeMonth(type, 'next')
+      }
     }
 
     header.appendChild(prevBtn)
@@ -216,6 +236,7 @@ export class DateRangePicker {
     return header
   }
 
+  // 渲染星期行
   private renderWeekRow(): HTMLElement {
     const weekRow = document.createElement('div')
     weekRow.className = 'weekdays'
@@ -231,6 +252,7 @@ export class DateRangePicker {
     return weekRow
   }
 
+  // 渲染日期网格
   private renderDaysGrid(type: 'start' | 'end'): HTMLElement {
     const grid = document.createElement('div')
     grid.className = 'days-grid'
@@ -244,7 +266,7 @@ export class DateRangePicker {
       dayCell.textContent = day.date().toString()
 
       // 添加日期单元格的样式类
-      const classes = this.getDateClass(day, month)
+      const classes = getDateClass(day, month, this.selectedStartDate, this.selectedEndDate)
       Object.entries(classes).forEach(([className, value]) => {
         if (value) dayCell.classList.add(className)
       })
@@ -254,28 +276,6 @@ export class DateRangePicker {
     })
 
     return grid
-  }
-
-  private getDateClass(day: Dayjs, currentDisplayMonth: Dayjs): Record<string, boolean> {
-    const isCurrentMonth = day.month() === currentDisplayMonth.month()
-    const isSelected = (this.selectedStartDate?.isSame(day, 'day') || this.selectedEndDate?.isSame(day, 'day')) ?? false
-    const isInRange = !!(this.selectedStartDate
-      && this.selectedEndDate
-      && day.isAfter(this.selectedStartDate, 'day')
-      && day.isBefore(this.selectedEndDate, 'day')
-      && isCurrentMonth)
-    const isOtherMonth = !isCurrentMonth
-    const isStartDate = (this.selectedStartDate?.isSame(day, 'day') && isCurrentMonth) ?? false
-    const isEndDate = (this.selectedEndDate?.isSame(day, 'day') && isCurrentMonth) ?? false
-
-    return {
-      'selected': isSelected && isCurrentMonth,
-      'in-range': isInRange,
-      'other-month': isOtherMonth,
-      'start-date': isStartDate,
-      'end-date': isEndDate,
-      'current-month': isCurrentMonth,
-    }
   }
 
   private handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
@@ -412,12 +412,12 @@ export class DateRangePicker {
     const yearPicker = document.createElement('div')
     yearPicker.className = 'year-picker'
 
+    // 年份网格
     const yearGrid = document.createElement('div')
     yearGrid.className = 'year-grid'
 
-    const currentYear = dayjs().year()
-    // 显示前后10年
-    for (let i = currentYear - 10; i <= currentYear + 10; i++) {
+    // 显示从 yearRangeStart 开始的15年
+    for (let i = this.yearRangeStart; i < this.yearRangeStart + 15; i++) {
       const yearCell = document.createElement('button')
       yearCell.className = 'year-cell'
       yearCell.textContent = i.toString()

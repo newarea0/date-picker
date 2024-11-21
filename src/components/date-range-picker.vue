@@ -2,7 +2,7 @@
 import type { Dayjs } from 'dayjs'
 import { FORMAT } from '@/constants'
 import { clickOutside as vClickOutside } from '@/directives/click-outside'
-import { getMonthDays, getMonthList, getWeekDays, getYearList } from '@/utils/date'
+import { getDateClass, getMonthDays, getMonthList, getWeekDays, getYearList } from '@/utils/date'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
@@ -172,30 +172,6 @@ function handleDateClick(date: Dayjs, currentDisplayMonth: Dayjs): void {
   }
 }
 
-// 获取日期单元格的样式
-function getDateClass(day: Dayjs, currentDisplayMonth: Dayjs) {
-  const isCurrentMonth = day.month() === currentDisplayMonth.month()
-  const isSelected = selectedStartDate.value?.isSame(day, 'day')
-    || selectedEndDate.value?.isSame(day, 'day')
-  const isInRange = selectedStartDate.value
-    && selectedEndDate.value
-    && day.isAfter(selectedStartDate.value, 'day')
-    && day.isBefore(selectedEndDate.value, 'day')
-    && isCurrentMonth // 只有当前月份的日期才显示范围样式
-  const isOtherMonth = !isCurrentMonth
-  const isStartDate = selectedStartDate.value?.isSame(day, 'day') && isCurrentMonth
-  const isEndDate = selectedEndDate.value?.isSame(day, 'day') && isCurrentMonth
-
-  return {
-    'selected': isSelected && isCurrentMonth, // 只有当前月份的日期才能被选中
-    'in-range': isInRange,
-    'other-month': isOtherMonth,
-    'start-date': isStartDate,
-    'end-date': isEndDate,
-    'current-month': isCurrentMonth,
-  }
-}
-
 // 切换弹框的显示/隐藏
 function togglePicker(event: Event): void {
   // 阻止事件冒泡
@@ -208,6 +184,7 @@ function handleInputFocus(event: Event): void {
   if (selectedStartDate.value && selectedEndDate.value) {
     startYearMonth.value = selectedStartDate.value.clone()
     endYearMonth.value = selectedEndDate.value.clone()
+    if (startYearMonth.value.month() === endYearMonth.value.month()) endYearMonth.value = startYearMonth.value.add(1, 'month')
   } else {
     startYearMonth.value = dayjs()
     endYearMonth.value = dayjs().add(1, 'month')
@@ -435,7 +412,7 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="day in startMonthDays"
                   :key="day.valueOf()"
                   class="day-cell"
-                  :class="getDateClass(day, startYearMonth)"
+                  :class="getDateClass(day, startYearMonth, selectedStartDate, selectedEndDate)"
                   :disabled="day.month() !== startYearMonth.month()"
                   @click="handleDateClick(day, startYearMonth)"
                 >
@@ -518,7 +495,7 @@ watch(() => props.modelValue, ([start, end]) => {
                   v-for="day in endMonthDays"
                   :key="day.valueOf()"
                   class="day-cell"
-                  :class="getDateClass(day, endYearMonth)"
+                  :class="getDateClass(day, endYearMonth, selectedStartDate, selectedEndDate)"
                   :disabled="day.month() !== endYearMonth.month()"
                   @click="handleDateClick(day, endYearMonth)"
                 >
