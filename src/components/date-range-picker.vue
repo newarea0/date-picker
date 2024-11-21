@@ -71,6 +71,17 @@ const monthList = Array.from({ length: 12 }, (_, i) => ({
   label: `${i + 1}月`,
 }))
 
+// 更新日期范围
+function updateDateRange(): void {
+  // 只有当开始和结束日期都存在时才更新
+  if (selectedStartDate.value && selectedEndDate.value) {
+    emit('update:modelValue', [
+      selectedStartDate.value.toDate(),
+      selectedEndDate.value.toDate(),
+    ])
+  }
+}
+
 // 验证输入框的值
 function validateInput(type: 'start' | 'end'): void {
   const text = type === 'start' ? startDateText.value : endDateText.value
@@ -101,17 +112,6 @@ function validateInput(type: 'start' | 'end'): void {
 
   hasError.value = false
   updateDateRange()
-}
-
-// 更新日期范围
-function updateDateRange(): void {
-  // 只有当开始和结束日期都存在时才更新
-  if (selectedStartDate.value && selectedEndDate.value) {
-    emit('update:modelValue', [
-      selectedStartDate.value.toDate(),
-      selectedEndDate.value.toDate(),
-    ])
-  }
 }
 
 // 添加输入框失焦事件处理
@@ -214,6 +214,13 @@ function togglePicker(event: Event): void {
 // 处理输入框聚焦事件
 function handleInputFocus(event: Event): void {
   event.stopPropagation()
+  if (selectedStartDate.value && selectedEndDate.value) {
+    startYearMonth.value = selectedStartDate.value.clone()
+    endYearMonth.value = selectedEndDate.value.clone()
+  } else {
+    startYearMonth.value = dayjs()
+    endYearMonth.value = dayjs().add(1, 'month')
+  }
   showPicker.value = true
 }
 // 关闭弹框
@@ -237,12 +244,12 @@ function handleMonthClick(type: 'start' | 'end'): void {
   showMonthPicker.value = type
 }
 
-// 上一月
+// 开始日期面板左侧按钮
 function prevStartMonth(): void {
   if (showYearPicker.value === 'start') yearRangeStart.value -= 21
   else startYearMonth.value = startYearMonth.value.subtract(1, 'month')
 }
-// 下一月
+// 开始日期面板右侧按钮
 function nextStartMonth(): void {
   if (showYearPicker.value === 'start') yearRangeStart.value += 21
   else {
@@ -250,7 +257,7 @@ function nextStartMonth(): void {
     if (startYearMonth.value.isSameOrAfter(endYearMonth.value)) endYearMonth.value = startYearMonth.value.add(1, 'month')
   }
 }
-// 上一月
+// 结束日期面板左侧按钮
 function prevEndMonth(): void {
   if (showYearPicker.value === 'end') yearRangeStart.value -= 21
   else {
@@ -258,7 +265,7 @@ function prevEndMonth(): void {
     if (endYearMonth.value.isSameOrBefore(startYearMonth.value)) startYearMonth.value = endYearMonth.value.subtract(1, 'month')
   }
 }
-// 下一月
+// 结束日期面板右侧按钮
 function nextEndMonth(): void {
   if (showYearPicker.value === 'end') yearRangeStart.value += 21
   else endYearMonth.value = endYearMonth.value.add(1, 'month')

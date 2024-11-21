@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import DateRangePicker from '@/components/date-range-picker.vue'
 import { DateRangePicker as DateRangePickerPlugin } from '@/plugin/date-range-picker'
+import dayjs from 'dayjs'
 
 // Vue 3
 const dateRange = ref([null, null])
@@ -26,6 +27,15 @@ onUnmounted(() => {
     <div>
       <h3>Vue 3</h3>
       <DateRangePicker v-model="dateRange" :day-start-of-week="1" />
+      <p>
+        <span>结果：</span>
+        <span v-if="dateRange[0]">
+          {{ dayjs(dateRange[0]).format('YYYY-MM-DD') }}
+          至
+          {{ dayjs(dateRange[1]).format('YYYY-MM-DD') }}
+        </span>
+        <span v-else>请选择日期范围</span>
+      </p>
     </div>
 
     <div>
